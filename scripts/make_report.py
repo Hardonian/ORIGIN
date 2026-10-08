@@ -32,6 +32,10 @@ def main() -> int:
     ap.add_argument("--exploratory", default=None, help="optional earlier experiment id for a replication check")
     ap.add_argument("--design", choices=["independent", "paired"], default="independent",
                     help="registered design of the primary experiment")
+    ap.add_argument("--analysis-file", default=None,
+                    help="filename of the registered analysis to cite (default depends on design)")
+    ap.add_argument("--bootstrap-seed", type=int, default=None,
+                    help="registered bootstrap seed of the primary analysis (must match analyze.py)")
     ap.add_argument("--out", default="research/reports/ORIGIN_Initial_Research_Report.md")
     args = ap.parse_args()
 
@@ -151,7 +155,7 @@ def main() -> int:
                 f"across the two independent experiments with **{mismatches} mismatches**."
             )
         repl_lines.append("")
-        _analysis_file = "H1_paired_v2_analysis.md" if args.design == "paired" else "H1_powered_analysis.md"
+        _analysis_file = args.analysis_file or ("H1_paired_v2_analysis.md" if args.design == "paired" else "H1_powered_analysis.md")
         repl_lines.append(f"> The registered analysis of the primary run is in `research/reports/{_analysis_file}`.")
         repl_lines.append("> Where a direction is not established by its registered interval analysis, it is")
         repl_lines.append("> reported as inconclusive rather than as a near-miss or a trend.")
@@ -172,7 +176,8 @@ def main() -> int:
     a = lines.append
     a("# Open-Ended Evolution and Cross-Morphology Generalization: A Reproducible Experimental Framework")
     a("")
-    analysis_file = "H1_paired_v2_analysis.md" if args.design == "paired" else "H1_powered_analysis.md"
+    analysis_file = args.analysis_file or ("H1_paired_v2_analysis.md" if args.design == "paired" else "H1_powered_analysis.md")
+    boot_seed = args.bootstrap_seed if args.bootstrap_seed is not None else (20261009 if args.design == "paired" else 20261008)
     a(f"**Author:** Scott Hardie (Hardonian) · **Status:** {len(cfg.get('seeds', []))} seeds; "
       f"interval-based registered analysis in `research/reports/{analysis_file}`. Not peer reviewed.")
     a("")
@@ -225,20 +230,19 @@ def main() -> int:
                 seeds = sorted(set(m_seed) & set(base_seed))
                 if not seeds:
                     continue
-                r = paired_bootstrap_ci([m_seed[s] for s in seeds], [base_seed[s] for s in seeds], seed=20261009)
+                r = paired_bootstrap_ci([m_seed[s] for s in seeds], [base_seed[s] for s in seeds], seed=boot_seed)
             else:
                 vals = by_algo.get(algo, {}).get("test", [])
                 if not vals:
                     continue
-                r = bootstrap_diff_ci(vals, ga, seed=20261008)
+                r = bootstrap_diff_ci(vals, ga, seed=boot_seed)
             a(f"* {label} − fixed-objective GA: **{r.point:+.3f}** "
               f"(95% bootstrap CI [{r.lo:+.3f}, {r.hi:+.3f}], n={r.n_a}) → **{r.verdict}**.")
         a("")
         a("* The registered interval analysis overrides any informal reading of the point")
         a("  estimates. Where the 95% CI spans zero the result is reported as **inconclusive**,")
-        a("  not as a near-miss. Full analyses:")
-        a("  `research/reports/H1_powered_analysis.md` (study 1) and")
-        a("  `research/reports/H1_paired_v2_analysis.md` (study v2).")
+        a("  not as a near-miss. Full analysis of this run:")
+        a(f"  `research/reports/{analysis_file}`; earlier studies are in the same directory.")
         a("")
 
     a("## 4. Cross-morphology and perturbation transfer")

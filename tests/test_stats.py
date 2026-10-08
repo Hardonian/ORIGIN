@@ -12,6 +12,7 @@ from origin.evaluation.stats import (
     DiffResult,
     bootstrap_diff_ci,
     mann_whitney,
+    min_detectable_effect,
     paired_bootstrap_ci,
     wilcoxon_signed_rank,
 )
@@ -130,3 +131,25 @@ def test_wilcoxon_rejects_unequal_lengths():
 
     with pytest.raises(ValueError):
         wilcoxon_signed_rank([1.0, 2.0], [1.0])
+
+
+# --------------------------------------------------------------------------- #
+# Minimum detectable effect (used to state a bounded null)
+# --------------------------------------------------------------------------- #
+def test_mde_shrinks_with_more_samples():
+    d = [1.0, -1.0, 2.0, -2.0, 1.5, -1.5, 0.5, -0.5]
+    small = min_detectable_effect(d, n=10)
+    large = min_detectable_effect(d, n=100)
+    assert large < small
+    assert large > 0
+
+
+def test_mde_matches_normal_approximation():
+    d = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
+    sd = float(__import__("numpy").std(d, ddof=1))
+    expected = (1.959963984540054 + 0.8416212335729143) * sd / (8 ** 0.5)
+    assert abs(min_detectable_effect(d, power=0.8) - expected) < 1e-9
+
+
+def test_mde_infinite_with_too_few_samples():
+    assert min_detectable_effect([1.0], n=1) == float("inf")

@@ -28,6 +28,7 @@ import numpy as np
 from origin.evaluation.stats import (
     bootstrap_diff_ci,
     mann_whitney,
+    min_detectable_effect,
     paired_bootstrap_ci,
     wilcoxon_signed_rank,
 )
@@ -86,7 +87,10 @@ def main() -> int:
     ap.add_argument("--store", default="runs")
     ap.add_argument("--experiment", default=None)
     ap.add_argument("--design", choices=["independent", "paired"], default="independent",
-                    help="registered design: 'independent' (study 1) or 'paired' (study v2)")
+                    help="registered design: 'independent' (study 1) or 'paired' (study v2/v3)")
+    ap.add_argument("--bootstrap-seed", type=int, default=None,
+                    help="override the registered bootstrap seed (studies use distinct seeds by design)")
+    ap.add_argument("--protocol-doc", default=None, help="path of the protocol document to cite")
     ap.add_argument("--out", default="research/reports/H1_powered_analysis.md")
     args = ap.parse_args()
 
@@ -104,8 +108,8 @@ def main() -> int:
     by_seed = _held_out_by_seed(store, exp_id)
 
     paired = args.design == "paired"
-    protocol_doc = "research/protocols/paired_v2.md" if paired else "research/protocols/powered_replication.md"
-    boot_seed = PAIRED_BOOTSTRAP_SEED if paired else BOOTSTRAP_SEED
+    protocol_doc = args.protocol_doc or ("research/protocols/paired_v2.md" if paired else "research/protocols/powered_replication.md")
+    boot_seed = args.bootstrap_seed if args.bootstrap_seed is not None else (PAIRED_BOOTSTRAP_SEED if paired else BOOTSTRAP_SEED)
 
     lines: list[str] = []
     a = lines.append
@@ -156,6 +160,24 @@ def main() -> int:
         a("")
         a(f"Paired on {len(set(cfg.get('seeds', [])))} method seeds. Uncorrected p-values are shown;")
         a(f"a Bonferroni threshold for two comparisons is α/2 = {ALPHA / 2:.3f} (reported, not applied).")
+        a("")
+        a("### Bounded null (minimum detectable effect)")
+        a("")
+        a("An inconclusive result is only meaningful with the effect size the design could")
+        a("have detected. At this n, 80% power, α = 0.05 (two-sided):")
+        a("")
+        for method in DIVERSITY:
+            if method not in by_seed or BASELINE not in by_seed:
+                continue
+            ma, mb, _seeds = _aligned(by_seed[method], by_seed[BASELINE])
+            diffs = [x - y for x, y in zip(ma, mb, strict=False)]
+            mde = min_detectable_effect(diffs, n=len(diffs))
+            observed = abs(sum(diffs) / len(diffs)) if diffs else 0.0
+            a(f"* `{method}`: minimum detectable paired effect = {mde:.3f} "
+              f"(observed |mean diff| = {observed:.3f}).")
+        a("")
+        a("If the CI spans zero, the correct statement is that any true effect is smaller")
+        a("than the minimum detectable effect — not that no effect exists.")
         a("")
         a("### Secondary (reported, not decisive)")
         a("")

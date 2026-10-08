@@ -81,9 +81,19 @@ Study v2 repeats this with a **paired** primary design and fresh seeds
 .venv/bin/python scripts/analyze.py --store runs --experiment <id> --design paired --out research/reports/H1_paired_v2_analysis.md
 ```
 
-The analysis (`research/protocols/powered_replication.md`) is fixed in advance:
-a bootstrap 95% CI on the difference in means plus a two-sided Mann–Whitney U.
-No other test is run and the conclusion is not switched to a more favourable statistic.
+Study v3 (`configs/pilot_paired_v3.json`, `research/protocols/paired_v3_power.md`) is
+power-sized from a prior power analysis and scoped to the resolvable comparison:
+
+```bash
+.venv/bin/origin-run --config configs/pilot_paired_v3.json --store runs --jobs 8
+.venv/bin/python scripts/analyze.py --store runs --experiment <id> --design paired \
+  --bootstrap-seed 20261010 --protocol-doc research/protocols/paired_v3_power.md \
+  --out research/reports/H1_v3_decisive_analysis.md
+```
+
+Every study uses a **distinct** bootstrap seed and its analysis is fixed before the
+run; no study is re-analysed and the conclusion is never switched to a more
+favourable statistic.
 
 Distribute a campaign to the compute node when it is online:
 

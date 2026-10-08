@@ -30,4 +30,5 @@ __all__ = [
     "mann_whitney",
     "paired_bootstrap_ci",
     "wilcoxon_signed_rank",
+    "min_detectable_effect",
 ]

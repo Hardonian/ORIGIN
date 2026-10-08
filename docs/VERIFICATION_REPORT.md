@@ -103,13 +103,23 @@ Held-out outcomes:
 |---|---|---|---|---|---|---|---|
 | 1 | 1–10 | independent | novelty − GA | −0.228 | [−1.427, +0.998] | 0.5423 | **inconclusive** |
 | 1 | 1–10 | independent | QD − GA | −0.038 | [−0.972, +0.965] | 0.6219 | **inconclusive** |
-| v2 | 11–20 | **paired** | novelty − GA | +0.331 | [−0.932, +1.549] | 0.5566 | **inconclusive** |
-| v2 | 11–20 | **paired** | QD − GA | +0.790 | [−0.161, +1.645] | 0.2031 | **inconclusive** |
+| v2 | 11–20 | paired | novelty − GA | +0.331 | [−0.932, +1.549] | 0.5566 | **inconclusive** |
+| v2 | 11–20 | paired | QD − GA | +0.790 | [−0.161, +1.645] | 0.2031 | **inconclusive** |
+| v3 | 21–60 (n=40) | paired, power-sized | QD − GA | −0.221 | [−0.721, +0.262] | 0.5377 | **inconclusive — BOUNDED NULL** |
 
 The pilot's +0.362 direction for novelty search **did not replicate** in study 1
-(−0.228) and swung positive again in study v2 (+0.331). The sign is unstable across
-studies and every registered 95% CI spans zero, so **H1 is not established**. This
-is a null/absent result for the project's own primary hypothesis, reported as such.
+(−0.228), swung positive in study v2 (+0.331), and the v2 MAP-Elites hint (+0.790)
+did not replicate either — study v3 found −0.221 at n=40. The sign is unstable and
+every registered 95% CI spans zero.
+
+**Study v3 makes the null bounded.** It was power-sized *before* running (n=40, from
+a study-v2 power analysis requiring 31.5) and scoped to the only comparison with
+feasible power (the same analysis showed `novelty_search` needs n ≈ 321). At n=40 the
+design could detect a paired effect of **≥ 0.708** at 80% power; the observed
+difference was −0.221. The correct statement is therefore: **on this task any
+MAP-Elites advantage is smaller than ≈0.71 reward units**, not "there is no effect".
+
+This is a bounded null for the project's own primary hypothesis, reported as such.
 
 ## UI build & contract
 
@@ -197,20 +207,26 @@ A green test suite is not proof of scientific correctness. Findings:
 * **No tuning against held-out seeds.** Held-out seeds were used only for
   reporting; the two task redesigns were judged on *training* behaviour and a
   held-out sanity check performed once, not iterated against.
-* **Statistical power:** two pre-registered 10-seed studies with interval analyses
-  (unpaired in study 1; **paired** in study v2, which is the efficient design here
-  because all methods share identical training environments). Every 95% CI still
-  spans zero, so H1 is **not established** — not supported, not refuted.
+* **Statistical power:** three pre-registered studies with interval analyses
+  (independent in study 1; paired in studies v2 and v3 — paired is the efficient
+  design because all methods share identical training environments). Study v3 was
+  **sized from a power analysis before running**, and its inconclusive result is
+  reported as a *bounded* null (effect < ≈0.71) rather than as "not proven".
+* **Scoping decided on power grounds, stated in advance.** Study v3 dropped
+  `novelty_search` because it needs n ≈ 321; that exclusion is declared in its
+  protocol before the run, so it cannot be read as selective reporting.
 * **A paired design was adopted for study v2 without touching study 1's data.**
   Study 1's registration stated that no other test would be run on it, so it was
   left alone rather than re-analysed to chase significance.
-* **An exploratory positive direction did not replicate** (novelty +0.362 at n=5
-  → −0.228 at n=10). This is reported prominently rather than quietly dropped.
+* **Two exploratory positive directions did not replicate** (novelty +0.362 at n=5
+  → −0.228 at n=10; MAP-Elites +0.790 at n=10 → −0.221 at n=40). Reported
+  prominently rather than quietly dropped.
 
 ## Honest limitations
 
-* H1 is **not established**: across the pilot, study 1 (unpaired) and study v2
-  (paired), point estimates change sign and every registered 95% CI spans zero.
+* H1 is **not established**, and the null is **bounded**: across the pilot, study 1
+  (unpaired), study v2 (paired) and study v3 (paired, n=40), point estimates change
+  sign and study v3's design bounds any MAP-Elites advantage below ≈0.71.
 * The heuristic control is privileged (global BFS) and is a reference, not a peer.
 * `reinforce` is a weak baseline here; conclusions about RL are bounded, not supported.
 * No articulated-physics embodiment exists yet (Milestone 4 is partial).

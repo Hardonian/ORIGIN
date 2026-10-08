@@ -30,9 +30,15 @@ fixed-objective evolution on held-out and transfer metrics.
 
 ## Status
 
-**Tested across three studies; NOT ESTABLISHED.** Study 1 (independent design) gave
-novelty −0.228, CI [−1.43, +1.00]; study v2 (paired design, fresh seeds) gave
-novelty +0.331, CI [−0.93, +1.55] and MAP-Elites +0.790, CI [−0.16, +1.65]. Every
-registered 95% CI spans zero and the sign is unstable, so the honest verdict is
-inconclusive — no diversity advantage is established on this task.
-See `../../reports/H1_powered_analysis.md` and `../../reports/H1_paired_v2_analysis.md`.
+**NOT ESTABLISHED across four studies; the null is BOUNDED.**
+
+Study v3 is decisive for the feasible comparison. It was power-sized before running
+(n=40, from a power analysis on study v2 giving a requirement of 31.5) and scoped to
+MAP-Elites vs fixed-objective GA because the same analysis showed `novelty_search`
+would need n ≈ 321. At n=40 the design could detect a paired effect of ≥ 0.708 at
+80% power; the observed paired difference was **−0.221** (95% CI [−0.72, +0.26]).
+The v2 hint of +0.790 did not replicate.
+
+Bounded conclusion: on this task **any MAP-Elites advantage is smaller than ≈0.71
+reward units**, and no advantage for novelty search is claimed in either direction.
+See `../../reports/H1_v3_decisive_analysis.md`.

@@ -114,3 +114,27 @@ def wilcoxon_signed_rank(a: list[float] | np.ndarray, b: list[float] | np.ndarra
         return 0.0, 1.0
     res = wilcoxon(a_arr, b_arr, alternative="two-sided")
     return float(res.statistic), float(res.pvalue)
+
+
+def min_detectable_effect(
+    diffs: list[float] | np.ndarray,
+    n: int | None = None,
+    power: float = 0.8,
+    alpha: float = 0.05,
+) -> float:
+    """Minimum paired effect detectable at the given power (normal approximation).
+
+    ``MDE = (z_{1-alpha/2} + z_{power}) * sd / sqrt(n)``, with ``sd`` the sample
+    standard deviation of the observed differences. Used to state a *bounded* null:
+    an inconclusive test at this n rules out effects larger than the MDE, which is
+    a stronger and more honest claim than "not proven".
+    """
+    d = np.asarray(diffs, dtype=float)
+    k = int(n) if n is not None else d.size
+    if k < 2:
+        return float("inf")
+    from scipy.stats import norm
+
+    z = float(norm.ppf(1 - alpha / 2) + norm.ppf(power))
+    sd = float(d.std(ddof=1))
+    return z * sd / np.sqrt(k)

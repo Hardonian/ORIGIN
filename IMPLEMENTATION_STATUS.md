@@ -16,7 +16,7 @@
 | 5 | Experiment orchestration | **done** | `origin.experiments.runner` + `store`; manifests, resume, cancellation, bounded concurrency, CSV/Parquet |
 | 6 | Research lab UI | **done** | 7 screens build; 6 headless-Chromium E2E tests verify live-data rendering |
 | 7 | Local compute distribution | **partial** | CPU-first; `--jobs` concurrency; `scripts/origin_remote_worker.sh` ready. The EPYC tailnode is **offline** (see Blockers) |
-| 8 | First research campaign | **done** | Pilot 30/30 + study 1 (independent, 60/60) + study v2 (paired, 60/60) — all 0 failures. **H1 not established**: every registered 95% CI spans zero; the exploratory positive direction did not replicate. Analyses fixed in advance, neither study re-analysed |
+| 8 | First research campaign | **done** | Pilot 30/30 + study 1 (60/60) + study v2 (60/60) + study v3 (160/160) — all 0 failures. **H1 not established, null BOUNDED**: v3 at n=40 (MDE 0.708) found −0.221 [−0.72, +0.26], so any MAP-Elites advantage is < ~0.71; the v2 hint did not replicate |
 
 ## Verified features
 
@@ -32,7 +32,7 @@
 
 ```
 $ .venv/bin/python -m pytest tests -q
-71 passed, 6 skipped        # skipped = browser E2E (opt-in)
+74 passed, 6 skipped        # skipped = browser E2E (opt-in)
 
 $ .venv/bin/ruff check packages tests scripts benchmarks
 All checks passed!
@@ -49,12 +49,13 @@ $ node apps/lab/scripts/smoke-api.mjs   # UI↔API contract
 $ scripts/e2e_lab.sh                    # real headless browser against live API
 6 passed
 
-$ .venv/bin/origin-run --config configs/pilot_powered.json --store runs --jobs 8
-60 trials run, 0 failed
+$ .venv/bin/origin-run --config configs/pilot_paired_v3.json --store runs --jobs 8
+160 trials run, 0 failed
 
-$ .venv/bin/python scripts/analyze.py --store runs --experiment c7363fb00344 --design paired
-novelty_search - fixed_objective_ga: +0.331, 95% paired CI [-0.932, +1.549], p=0.557 -> inconclusive
-map_elites     - fixed_objective_ga: +0.790, 95% paired CI [-0.161, +1.645], p=0.203 -> inconclusive
+$ .venv/bin/python scripts/analyze.py --store runs --experiment 8f92870eaeb0 --design paired \
+    --bootstrap-seed 20261010 --protocol-doc research/protocols/paired_v3_power.md
+map_elites - fixed_objective_ga: -0.221, 95% paired CI [-0.721, +0.262], p=0.538 -> inconclusive
+  minimum detectable paired effect = 0.708 (observed |mean diff| = 0.221)   # bounded null
 
 $ scripts/origin_remote_worker.sh --check
 ERROR: epyc is not reachable over SSH.   (expected: node offline — see Blockers)
@@ -124,8 +125,8 @@ uv venv --python 3.12 .venv && uv pip install -e '.[dev]' --python .venv/bin/pyt
 
 ## Next executable action
 
-Design a task where quality-diversity can genuinely express an advantage — the
-current foraging world is a single-niche objective, which is the most likely reason
-no diversity effect appears. Pre-register the task and analysis *before* running,
-and increase seeds further; study v2's paired CI for MAP-Elites ([−0.16, +1.65]) is
-the closest anything has come to excluding zero, so that is the thread to pull next.
+H1 is closed for this task as a bounded null (< ~0.71). The remaining scientific
+question is a different one: whether a task with **genuine multi-niche structure**
+(where quality-diversity has somewhere to put its diversity) shows an advantage that
+this single-niche foraging world cannot. Pre-register the environment and the
+analysis together *before* running it, and size it from a power analysis as study v3 was.
