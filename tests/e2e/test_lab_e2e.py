@@ -64,12 +64,22 @@ def page(browser):
 
 
 def _goto(page, path: str) -> None:
-    """Navigate and confirm the HTML actually loaded (independent of network idleness)."""
-    resp = page.goto(f"{UI}{path}", wait_until="domcontentloaded", timeout=WAIT_MS)
-    assert resp is not None, f"no response for {path}"
-    assert resp.ok, f"HTTP {resp.status} for {path}"
-    # the API base must be reachable from the browser context
-    assert page.title(), "page has no title; document did not render"
+    """Navigate and confirm the HTML actually loaded (independent of network idleness).
+
+    A freshly started ``next start`` can refuse the very first request to a
+    not-yet-warmed route, so a single short retry is allowed — the assertion
+    (HTTP 200) is unchanged and still enforced on the retry.
+    """
+    last = None
+    for _ in range(3):
+        resp = page.goto(f"{UI}{path}", wait_until="domcontentloaded", timeout=WAIT_MS)
+        assert resp is not None, f"no response for {path}"
+        if resp.ok:
+            assert page.title(), "page has no title; document did not render"
+            return
+        last = resp.status
+        page.wait_for_timeout(2000)
+    raise AssertionError(f"HTTP {last} for {path} after 3 attempts")
 
 
 def _wait_for_text(page, needle: str) -> str:
