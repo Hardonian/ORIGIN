@@ -94,11 +94,16 @@ ssh -o BatchMode=yes "${REMOTE_HOST}" bash -lc "'
 '"
 
 # ------------------------------------------------------------------- retrieve
-log "syncing results back -> ${LOCAL_STORE}"
+log "syncing results back -> ${LOCAL_STORE} (staged merge; local rows are never clobbered)"
+STAGE="$(mktemp -d)"
+trap 'rm -rf "${STAGE}"' EXIT
+rsync -az "${REMOTE_HOST}:${REMOTE_DIR}/runs/" "${STAGE}/"
 mkdir -p "${LOCAL_STORE}"
-rsync -az "${REMOTE_HOST}:${REMOTE_DIR}/runs/" "${LOCAL_STORE}/"
+# Trial ids are deterministic (sha256 of experiment|algorithm|seed), so the
+# merge is idempotent and cannot duplicate work. Local `done` rows are kept
+# (keep-first); conflicts are reported instead of silently resolved.
+.venv/bin/origin-merge-stores --from "${STAGE}" --into "${LOCAL_STORE}"
 
-# Trial ids are deterministic (sha256 of experiment|algorithm|seed), so merging
-# remote results into the local store is idempotent and cannot duplicate work.
 log "done. Inspect with:"
+log "  .venv/bin/origin-worker --store ${LOCAL_STORE} --status"
 log "  .venv/bin/python -c \"from origin.experiments.store import Store; s=Store('${LOCAL_STORE}'); [print(e['id'], e['name'], s.summary(e['id'])) for e in s.list_experiments()]\""

@@ -15,7 +15,7 @@
 | 4 | Embodied intelligence / morphology transfer | **INVALIDATED — blocked on morphology design** | The instrument was physically broken (links clumped at one point, capsules vertical) and three measurement defects made every number untrustworthy. All M4 results **retracted** — see the correction at the top of `research/reports/ORIGIN_M4_Embodied_Transfer_Report.md`. Corrected instrument: the chain topples at rest and **no gait/axis/torque variant locomotes** (`scripts/probe_embodied_morphology.py`); pilot `589217adbe9e` (15/15 trials) scores a constant −1.000 with 0 successes. Needs a morphology redesign (anisotropic friction / actuation scheme) before any embodied claim |
 | 5 | Experiment orchestration | **done** | `origin.experiments.runner` + `store`; manifests, resume, cancellation, bounded concurrency, CSV/Parquet |
 | 6 | Research lab UI | **done** | 7 screens on **Next 16.4.0**; ESLint 9 flat config; 6 headless-Chromium E2E tests verify live-data rendering |
-| 7 | Local compute distribution | **partial** | CPU-first; `--jobs` concurrency; `scripts/origin_remote_worker.sh` ready. The EPYC tailnode is **offline** (see Blockers) |
+| 7 | Local compute distribution | **partial — worker model verified; multi-host run pending** | Real worker model landed and verified across **real worker processes**: atomic trial claims, heartbeats, stale-worker recovery, keep-first completion, idempotent store merge (`origin-worker`, `origin-merge-stores`, `tests/test_worker_model.py` 19 tests). 3-process CLI campaign: 9/9 trials, claims disjoint (2+4+3), 0 duplicates. Real-crash probe `scripts/probe_worker_recovery.py`: SIGKILL mid-trial → orphan recovered, 11/11 checks. `--jobs` concurrency and `scripts/origin_remote_worker.sh` (SSH path, staged merge) ready. Remaining: one real multi-host campaign — the EPYC tailnode is **offline** (see Blockers) |
 | 8 | First research campaign | **partial — grid half stands** | Grid: pilot 30/30 + study 1 (60/60) + v2 (60/60) + v3 (160/160), all 0 failures. **H1 not established, null BOUNDED**: v3 at n=40 (MDE 0.708) found −0.221 [−0.72, +0.26]. Embodied half is **retracted** with milestone 4. Caveat: any *adaptation-gain* number produced before 2026-10-08 (grid included) was measured in-sample and must be re-run before being cited |
 
 ## Verified features
@@ -52,16 +52,31 @@
   REINFORCE run unchanged against either simulator; the only per-simulator
   differences are an env factory (RL), descriptor axes (QD) and baseline set.
   Asserted in `tests/test_runner_embodied.py`.
+* **Distributed worker model** — independent worker processes share one store.
+  Each trial is claimed atomically (exactly one live, heartbeating owner),
+  workers heartbeat while they work, and a stale worker's trials return to the
+  pool for another worker to take over. Verified across **real worker
+  processes** (3-process CLI campaign: 9/9 trials, disjoint claims, 0
+  duplicates) and against a **real crash** (`scripts/probe_worker_recovery.py`
+  SIGKILLs a worker mid-trial: the orphaned `running` row is detected, the
+  worker is reaped, the trial is recovered and every trial ends `done` exactly
+  once). Asserted in `tests/test_worker_model.py`.
+* **Idempotent completion and store merge** — trial ids are deterministic
+  (`sha256(experiment|algorithm|seed)`); completion is keep-first (a `done` row
+  is never overwritten — duplicate computations are reported as dropped), and
+  `origin-merge-stores` merges stores by trial id idempotently (a second merge
+  is a no-op; both-done conflicts are reported, never silently resolved).
+  Asserted in `tests/test_worker_model.py`.
 
 ## Latest successful tests (all re-run 2026-10-08)
 
 ```
 $ .venv/bin/python -m pytest tests
-124 passed, 6 skipped        # 130 collected; skipped = browser E2E (opt-in)
+143 passed, 6 skipped        # 149 collected; skipped = browser E2E (opt-in)
 $ .venv/bin/ruff check packages tests scripts benchmarks
 All checks passed!
 $ .venv/bin/mypy
-Success: no issues found in 29 source files
+Success: no issues found in 30 source files
 $ cd apps/lab && npm run lint && npm run typecheck && npm run build
 ✔ No ESLint warnings or errors; typecheck clean; production build OK
 $ node apps/lab/scripts/smoke-api.mjs   # UI↔API contract (API on :8788)
@@ -83,7 +98,18 @@ $ .venv/bin/python scripts/analyze.py --store runs --experiment 8f92870eaeb0 --d
 map_elites - fixed_objective_ga: -0.221, 95% paired CI [-0.721, +0.262], p=0.538 -> inconclusive
   minimum detectable paired effect = 0.708 (observed |mean diff| = 0.221)   # bounded null
 $ .venv/bin/bandit -q -r packages/origin  # CI gates medium+
-0 medium/high; 8 low (B101 assert_used — invariant assertions in research code)
+0 medium/high; 13 low (8 B101 invariant asserts; 5 subprocess-scan lows from
+  runner.py's git manifest helper — static argv, no shell) — all documented
+$ .venv/bin/origin-worker --config <campaign> --store <store>   # x3, real processes
+cli-worker-1 claimed=2 completed=2; cli-worker-2 claimed=4 completed=4;
+  cli-worker-3 claimed=3 completed=3     # 9/9 trials, claims disjoint, 0 duplicates
+$ .venv/bin/origin-merge-stores --from <src> --into <dst>       # run twice
+first:  {trials: 9, conflicts: []}; second: {trials: 0, trials_skipped_done: 9}
+$ .venv/bin/python scripts/probe_worker_recovery.py             # real SIGKILL mid-trial
+11/11 checks passed   # orphan detected, victim reaped, trial recovered,
+                      # every trial done exactly once under the rescuer
+$ .venv/bin/origin-worker --store runs --status
+workers listed with heartbeat ages; trial counts per status
 $ scripts/origin_remote_worker.sh --check
 ERROR: epyc is not reachable over SSH.   (expected: node offline — see Blockers)
 ```
@@ -186,10 +212,12 @@ ERROR: epyc is not reachable over SSH.   (expected: node offline — see Blocker
   (`epyc.taile5788a.ts.net`), but `tailscale status` reports
   **`offline, last seen 4d ago`** and SSH:22 times out. This is not a
   configuration gap on this host — the machine is powered down / off the tailnet.
-  The multi-host path is ready and correct: `scripts/origin_remote_worker.sh`
-  mirrors the repo, runs the campaign remotely under `--jobs`, and pulls results
-  back (trial ids are deterministic, so the merge is idempotent). When the node
-  returns, one command distributes the work. Related nodes seen on the tailnet:
+  The multi-host path is ready: `scripts/origin_remote_worker.sh` mirrors the
+  repo, runs the campaign remotely, and pulls results back via a **staged
+  `origin-merge-stores` merge** (deterministic trial ids → idempotent, local
+  rows never clobbered). Remote workers can also simply run `origin-worker`
+  against a shared store. When the node returns, one command distributes the
+  work. Related nodes seen on the tailnet:
   `hx370` (windows), `hx370-1` (this WSL host), `poco-f7` (android).
 
 ## Remaining work
@@ -198,12 +226,13 @@ ERROR: epyc is not reachable over SSH.   (expected: node offline — see Blocker
    Acceptance: `scripts/probe_embodied_morphology.py` shows a policy that both
    stays upright for a full episode *and* travels ≥ target distance; then re-run
    the pre-registered H2 campaign unchanged and analyze it.
-2. **Milestone 7 (compute distribution)**: `--jobs` is real and tested, and the
-   remote worker script is ready, but the EPYC node is offline, so no multi-host
-   run has actually happened. The productive move is a real worker model
-   (heartbeats, stale-worker recovery, idempotent merge by deterministic trial
-   id) verified by running a campaign across several real worker processes
-   locally, with the remote path as the same mechanism over SSH.
+2. **Milestone 7 (compute distribution)**: the worker model is **done and
+   verified** — heartbeats, atomic claims, stale-worker recovery (real SIGKILL
+   probe), keep-first completion, idempotent merge by deterministic trial id,
+   all proven across real local worker processes
+   (`tests/test_worker_model.py`, `scripts/probe_worker_recovery.py`). What
+   remains is exactly one real multi-host campaign once the EPYC node is back
+   (Blockers) — the remote path is the same mechanism over SSH.
 3. **Milestone 6 (UI)**: 7 screens E2E-tested; the 3-D morphology viewer is not
    built (grid viewer only, now with graceful degradation).
 4. A multi-niche grid task: H1 is closed for the current single-niche world as a
@@ -216,6 +245,11 @@ ERROR: epyc is not reachable over SSH.   (expected: node offline — see Blocker
 uv venv --python 3.12 .venv && uv pip install -e '.[dev]' --python .venv/bin/python
 .venv/bin/python -m pytest tests -q
 .venv/bin/origin-run --config configs/pilot.json --store runs --jobs "$(nproc)"
+# distributed worker model (any number of processes, one shared store):
+.venv/bin/origin-worker --config configs/pilot.json --store runs --stale-after 120
+.venv/bin/origin-worker --store runs --status
+.venv/bin/python scripts/probe_worker_recovery.py        # real crash-recovery proof
+.venv/bin/origin-merge-stores --from runs-remote --into runs   # idempotent merge
 .venv/bin/origin-api  --store runs --host 127.0.0.1 --port 8788 &
 (cd apps/lab && npm install && npm run build && npm run start)
 .venv/bin/python scripts/make_report.py --store runs

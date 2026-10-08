@@ -583,9 +583,17 @@ def _execute_one(store: Any, exp_id: str, algo: str, seed: int, tid: str, cfg: d
         results.append({"trial_id": tid, "algorithm": algo, "seed": seed, "status": "failed", "error": str(exc)})
 
 
-def _persist(store: Any, exp_id: str, res: dict[str, Any], tid: str, exp_dir: Path, results: list[dict[str, Any]]) -> None:
+def _persist(store: Any, exp_id: str, res: dict[str, Any], tid: str, exp_dir: Path, results: list[dict[str, Any]], worker_id: str | None = None) -> None:
     store.add_trial(tid, exp_id, res["algorithm"], res["seed"], int(res["budget"]))
-    store.complete_trial(tid, res["interactions"], float(res["best_fitness"]), float(res["metrics"].get("train_fitness", res["best_fitness"])), res["metrics"], res["transfer"])
+    recorded = store.complete_trial(
+        tid,
+        res["interactions"],
+        float(res["best_fitness"]),
+        float(res["metrics"].get("train_fitness", res["best_fitness"])),
+        res["metrics"],
+        res["transfer"],
+        worker_id=worker_id,
+    )
     exp_dir.mkdir(parents=True, exist_ok=True)
     hist = res["metrics"].get("history", [])
     with (exp_dir / f"{tid}.jsonl").open("w") as fh:
@@ -594,7 +602,16 @@ def _persist(store: Any, exp_id: str, res: dict[str, Any], tid: str, exp_dir: Pa
     if res.get("best_organism"):
         (exp_dir / f"{tid}.organism.json").write_text(json.dumps(res["best_organism"], sort_keys=True))
     store.add_artifact(exp_id, tid, "history_jsonl", str(exp_dir / f"{tid}.jsonl"))
-    results.append({"trial_id": tid, "algorithm": res["algorithm"], "seed": res["seed"], "status": "done", "best_fitness": res["best_fitness"]})
+    results.append({
+        "trial_id": tid,
+        "algorithm": res["algorithm"],
+        "seed": res["seed"],
+        # Completion is keep-first: if the trial was already done (a duplicate
+        # computation finishing late), the recorded result stands and this run
+        # is reported as dropped, never silently counted as work done.
+        "status": "done" if recorded else "duplicate_dropped",
+        "best_fitness": res["best_fitness"],
+    })
 
 
 def main(argv: list[str] | None = None) -> int:
