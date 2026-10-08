@@ -63,6 +63,11 @@ $ .venv/bin/origin-run --config configs/pilot.json --store runs --jobs 6
 
 ## Known defects / limitations
 
+* **Frontend dependency advisories.** `npm audit` reports 4 advisories against
+  `next@14.2.35` requiring a breaking `next@16` upgrade (which also removes
+  `next lint`). None apply to this configuration (no rewrites, no server actions,
+  no `next/image`/AVIF, Linux host, loopback-only). Documented in `SECURITY.md`;
+  the upgrade is tracked below. PostCSS advisories were fixed via an override.
 * **REINFORCE is weak** at the pilot budget and previously collapsed to a
   single action; an entropy bonus was added, which raised it above the collapse
   but it still trails the random control. Reported honestly; it bounds RL claims.
@@ -82,10 +87,12 @@ $ .venv/bin/origin-run --config configs/pilot.json --store runs --jobs 6
 
 ## Remaining work
 
-1. Articulated-physics embodiment (Milestone 4) with a real physics engine.
-2. A powered replication of H1 (more seeds/budgets) and a QD-favouring task.
-3. Optional GPU-accelerated population evaluation on the compute node.
-4. A headless browser (Playwright) smoke test for the UI in CI.
+1. Upgrade the lab frontend to `next@16` to clear the 4 documented advisories
+   (requires migrating `next lint` → ESLint CLI and React 19).
+2. Articulated-physics embodiment (Milestone 4) with a real physics engine.
+3. A powered replication of H1 (more seeds/budgets) and a QD-favouring task.
+4. Optional GPU-accelerated population evaluation on the compute node.
+5. A headless browser (Playwright) smoke test for the UI in CI.
 
 ## Reproduction commands
 

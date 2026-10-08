@@ -23,6 +23,27 @@ workstation; it does not expose a public attack surface by default.
 `tests/test_security.py` asserts these properties against the source tree and is
 run in CI. If a guarantee is weakened, CI fails.
 
+## Known dependency advisories (frontend)
+
+`npm audit` reports 4 advisories against `next@14.2.35` (the latest 14.2.x patch
+release). They are documented here rather than suppressed:
+
+| Advisory | Affected feature | Applicable to ORIGIN? |
+|---|---|---|
+| SSRF in `rewrites` via attacker-controlled destination | `next.config` rewrites | **No** — no rewrites configured |
+| Unauthenticated disclosure of internal Server Function endpoints | React Server Actions | **No** — no server actions used |
+| Unauthenticated RCE on Windows-hosted servers | Windows deployments | **No** — Linux/WSL host |
+| Unauthenticated RCE in Image Optimization API (AVIF) | `next/image` optimizer | **No** — no `next/image`; the UI uses plain `<img>` |
+
+Resolving them requires `next@16`, a breaking change that also removes `next lint`
+and pulls React 19. That upgrade is tracked as remaining work (see
+`IMPLEMENTATION_STATUS.md`). The lab UI is loopback-only and single-user, which
+further bounds exposure. **We do not claim the frontend dependency tree is
+advisory-free.**
+
+PostCSS advisories previously present were resolved via an `overrides` pin to
+`postcss >= 8.5.29`.
+
 ## Reporting a vulnerability
 
 Open a private security advisory on the GitHub repository, or contact the

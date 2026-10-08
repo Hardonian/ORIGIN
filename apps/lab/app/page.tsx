@@ -18,7 +18,7 @@ export default function OverviewPage() {
     apiGet<ExperimentSummary[]>("/api/experiments")
       .then((d) => {
         setExps(d);
-        if (d.length && !sel) setSel(d[0].id);
+        if (d.length) setSel((cur) => cur ?? d[0].id);
       })
       .catch((e) => setErr(String(e)));
   }, []);
