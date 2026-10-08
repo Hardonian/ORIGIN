@@ -1,0 +1,32 @@
+{
+  "name": "smoke_test",
+  "protocol": "ci_deterministic_fixture",
+  "description": "Tiny deterministic configuration used by CI and local smoke tests. Kept small so it runs in seconds.",
+  "env": {
+    "height": 8,
+    "width": 8,
+    "max_steps": 60,
+    "terrain": "random",
+    "obstacle_density": 0.05,
+    "n_resources": 3,
+    "n_hazards": 1,
+    "resource_regen": false,
+    "step_penalty": 0.001,
+    "wall_penalty": 0.0,
+    "hazard_penalty": 0.5,
+    "resource_reward": 1.0,
+    "seed": 0
+  },
+  "train_seeds": [1, 2],
+  "test_seeds": [7, 8],
+  "budget": 4000,
+  "seeds": [1],
+  "include_baselines": ["random", "heuristic"],
+  "transfer": {"adapt": false},
+  "algorithms": {
+    "fixed_objective_ga": {"pop_size": 10, "max_generations": 200},
+    "novelty_search": {"pop_size": 10, "max_generations": 200},
+    "map_elites": {"batch": 6, "grid_shape": [6, 6], "max_iterations": 200},
+    "reinforce": {"hidden": [12], "episodes_per_update": 2, "max_updates": 50}
+  }
+}

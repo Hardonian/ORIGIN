@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+.env.local
+.env*.local
+
+# ORIGIN generated data (never commit)
+datasets/*
+!datasets/README.md
+!datasets/fixtures/
+!datasets/fixtures/**
+runs/
+artifacts/
+research/reports/*.parquet
+research/reports/*.csv
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# Model checkpoints / large blobs
+checkpoints/
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.gguf
+*.safetensors
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+*.log

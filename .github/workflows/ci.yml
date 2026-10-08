@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: Python — lint, types, tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Create venv
+        run: uv venv --python ${{ matrix.python-version }} .venv
+      - name: Install dependencies
+        run: uv pip install -e ".[dev]" --python .venv/bin/python
+      - name: Ruff (lint)
+        run: .venv/bin/ruff check packages tests scripts benchmarks
+      - name: Mypy (types)
+        run: .venv/bin/mypy
+        continue-on-error: true
+      - name: Pytest (unit + integration)
+        run: .venv/bin/python -m pytest tests -q
+      - name: Deterministic smoke experiment
+        run: .venv/bin/origin-run --config configs/smoke.json --store runs --jobs 2
+
+  security:
+    name: Security checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - run: uv venv --python 3.12 .venv
+      - run: uv pip install -e ".[dev]" --python .venv/bin/python
+      - name: pip-audit (dependency CVEs)
+        run: |
+          uv pip install pip-audit --python .venv/bin/python
+          .venv/bin/pip-audit --progress-spinner off || true
+      - name: bandit (SAST)
+        run: |
+          uv pip install bandit --python .venv/bin/python
+          .venv/bin/bandit -q -r packages/origin || true
+      - name: Secret scan
+        run: .venv/bin/python -m pytest tests/test_security.py -q
+
+  frontend:
+    name: Frontend — lint, types, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install deps
+        working-directory: apps/lab
+        run: npm ci || npm install
+      - name: Lint
+        working-directory: apps/lab
+        run: npm run lint --if-present
+      - name: Type check
+        working-directory: apps/lab
+        run: npm run typecheck --if-present
+      - name: Production build
+        working-directory: apps/lab
+        run: npm run build
