@@ -19,9 +19,9 @@ Commit under verification: `ebc2629` (git, `main`, clean tree at run time).
 | Evaluation | Train/test isolation and repeatability | **PASS** — `test_validate_config_rejects_seed_leakage`, `test_ga_deterministic_given_seed` |
 | Morphology | Distinct transfer configurations execute | **PASS** — `test_transfer_to_different_morphology_executes`, `test_morphology_and_perturbation_variants_are_distinct` |
 | Metrics | Persisted results match source trial data | **PASS** — report tables generated from SQLite; `test_store_roundtrip` |
-| UI | Main workflows operate with live backend | **PARTIAL** — build + types + API contract verified; interactive headless render **NOT VERIFIED** (browser tool cannot reach loopback) |
+| UI | Main workflows operate with live backend | **PASS** — 6 headless-Chromium E2E tests render live API data (overview, world grid + replay, transfer matrix, failures, artifacts, designer) |
 | API | Validation, cancellation and error handling | **PASS** — endpoints exercised via curl and `smoke-api.mjs`; launcher rejects invalid config |
-| Compute | CPU fallback and resource limits | **PASS** — CPU-only run; `--jobs` bounds concurrency; UI launch capped at 5e6 interactions |
+| Compute | CPU fallback and resource limits | **PASS** — CPU-only run; `--jobs` bounds concurrency; UI launch capped at 5e6 interactions; remote worker ready |
 | Security | Secrets, dependencies and local exposure | **PASS** — see Security section |
 | Build | Clean installation and production build | **PASS** — see Build section |
 | GitHub | Remote commit and branch verification | see final release report |
@@ -30,11 +30,18 @@ Commit under verification: `ebc2629` (git, `main`, clean tree at run time).
 
 ```
 $ .venv/bin/python -m pytest tests -q
-57 passed
+57 passed, 6 skipped        # the 6 skipped are the browser E2E tests (opt-in)
+
+$ scripts/e2e_lab.sh        # starts API + production UI, runs the browser E2E, tears down
+6 passed
 ```
 
-Breakdown: `test_environment.py` (14), `test_organisms.py` (9), `test_evolution.py`
-(5), `test_evaluation.py` (6), `test_experiments.py` (11), `test_security.py` (5).
+63 tests collected in total: 57 unit/integration (always run) + 6 browser E2E
+(require `ORIGIN_E2E=1` and running servers; invoked by `scripts/e2e_lab.sh`).
+
+Breakdown: `test_environment.py` (21), `test_organisms.py` (9), `test_evolution.py`
+(5), `test_evaluation.py` (6), `test_experiments.py` (11), `test_security.py` (5),
+`e2e/test_lab_e2e.py` (6, opt-in).
 
 ```
 $ .venv/bin/ruff check packages tests scripts benchmarks
@@ -91,13 +98,30 @@ $ node scripts/smoke-api.mjs
 13/13 checks passed
 ```
 
-**NOT VERIFIED:** an interactive browser render against the live API. The
-available browser automation tool refuses to load loopback addresses
-("Blocked: URL targets a private or internal address"), so the UI was verified by
-production build, static type-checking, HTTP 200 on all routes, and a UI↔API
-contract test (`smoke-api.mjs`) that asserts every field the components read
-exists in the live responses. A Playwright-based local browser smoke test is
-listed as remaining work.
+**Browser rendering: PASS (previously NOT VERIFIED).** A local headless Chromium
+(Playwright) now drives the real UI against the live API. The cloud browser tool
+used earlier refuses loopback addresses, which is why this was open; running a
+local browser closes it.
+
+```
+$ scripts/e2e_lab.sh
+[e2e] starting ORIGIN API on 8788
+[e2e] building + starting the lab UI on 4317
+[e2e] running browser tests
+......                                                                   [100%]
+[e2e] OK
+```
+
+What the six tests assert against real backend state:
+
+| Test | Assertion |
+|---|---|
+| overview | the persisted experiment id and **every** compared method name are rendered |
+| world viewer | rendered `div.cell` count **equals** the backend grid size; the ▶ control advances "step 0" → "step 1" |
+| benchmark | every recorded transfer variant appears in the matrix |
+| failures | renders either the real failure rows or the "no failures" state |
+| artifacts | every artifact kind present in the store appears on the page |
+| designer | a real protocol name renders and the config editor is populated with JSON |
 
 ## Security
 

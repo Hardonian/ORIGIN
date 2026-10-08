@@ -26,17 +26,42 @@ uv pip install -e ".[dev]" --python .venv/bin/python
 ## Compute worker (optional)
 
 Because a trial is a pure function of `(algorithm, seed, config)`, work can be
-distributed trivially:
+distributed trivially. The node is reached over a **Tailscale tailnet**.
 
-* **Same-account SSH, shared filesystem**: run `origin-run` with a larger
-  `--jobs` on the compute host, pointing `--store` at a shared directory. The
-  store uses `filelock`, so concurrent writers are safe.
-* **No shared filesystem**: copy the config, run the same `origin-run` with the
-  same `--config` and `--store` on the worker, then copy `runs/` back. Trial ids
-  are deterministic, so results merge without duplication.
+Observed tailnet members (`tailscale status`):
 
-GPU nodes are used only if a future algorithm is written to target CUDA
-(currently none are). Do not assume V100/P40/RTX3060 share CUDA features.
+| Node | Address | Role |
+|---|---|---|
+| `epyc` | `100.127.74.34` (`epyc.taile5788a.ts.net`) | research compute (CPU/GPU) |
+| `hx370-1` | `100.106.185.67` | this WSL workstation |
+| `hx370` | `100.90.157.103` | Windows host |
+| `poco-f7` | `100.110.204.34` | android |
+
+**Current availability:** `epyc` reports `offline, last seen 4d ago`; SSH times
+out. This is a power/network state, not a configuration gap — no action is needed
+on the workstation side. Check with:
+
+```bash
+tailscale status | grep epyc
+ssh -o BatchMode=yes -o ConnectTimeout=8 epyc true && echo reachable
+```
+
+### One-command distribution
+
+```bash
+scripts/origin_remote_worker.sh --check                    # reachability + hardware report
+scripts/origin_remote_worker.sh --config configs/pilot.json --jobs 32
+```
+
+The script mirrors the repo (excluding `.venv`, `runs`, `node_modules`, `.next`),
+creates a venv and installs on the remote, runs `pytest` then the experiment, and
+rsyncs `runs/` back. **Trial ids are deterministic** (`sha256(experiment|algo|seed)`),
+so merging remote results into the local store is idempotent and cannot duplicate
+work — the same is true of any number of workers writing to a shared store, which
+is protected by a `filelock`.
+
+GPU nodes are used only if an algorithm is written to target CUDA (currently none
+are). Do not assume V100/P40/RTX3060 share CUDA features.
 
 ## Safety
 

@@ -14,8 +14,8 @@
 | 3 | Learning & evolution baselines | **done** | GA, novelty search, MAP-Elites, REINFORCE all run under a shared interaction budget |
 | 4 | Embodied intelligence / morphology transfer | **partial** | 2D sensor/actuator/body transfer + adaptation implemented and measured. **Not done:** articulated-body physics (PyBullet/MuJoCo) |
 | 5 | Experiment orchestration | **done** | `origin.experiments.runner` + `store`; manifests, resume, cancellation, bounded concurrency, CSV/Parquet |
-| 6 | Research lab UI | **partial** | 7 screens build and render live API data; see "UI" below for the one unverified item |
-| 7 | Local compute distribution | **partial** | CPU-first; `--jobs` concurrency + documented multi-host pattern. EPYC compute node was **not reachable** from this host (see Blockers) |
+| 6 | Research lab UI | **done** | 7 screens build; 6 headless-Chromium E2E tests verify live-data rendering |
+| 7 | Local compute distribution | **partial** | CPU-first; `--jobs` concurrency; `scripts/origin_remote_worker.sh` ready. The EPYC tailnode is **offline** (see Blockers) |
 | 8 | First research campaign | **done** | 30/30 trials, 0 failures; report auto-generated from stored artifacts |
 
 ## Verified features
@@ -32,7 +32,7 @@
 
 ```
 $ .venv/bin/python -m pytest tests -q
-57 passed
+57 passed, 6 skipped        # skipped = browser E2E (opt-in)
 
 $ .venv/bin/ruff check packages tests scripts benchmarks
 All checks passed!
@@ -40,14 +40,20 @@ All checks passed!
 $ .venv/bin/mypy
 Success: no issues found in 26 source files
 
-$ cd apps/lab && npm run typecheck && npm run build
-✓ compiled successfully; 10 routes; production build OK
+$ cd apps/lab && npm run lint && npm run typecheck && npm run build
+✔ No ESLint warnings or errors; typecheck clean; production build OK (10 routes)
 
 $ node apps/lab/scripts/smoke-api.mjs   # UI↔API contract
 13/13 checks passed
 
+$ scripts/e2e_lab.sh                    # real headless browser against live API
+6 passed
+
 $ .venv/bin/origin-run --config configs/pilot.json --store runs --jobs 6
 30 trials run, 0 failed
+
+$ scripts/origin_remote_worker.sh --check
+ERROR: epyc is not reachable over SSH.   (expected: node offline — see Blockers)
 ```
 
 ## Current architecture decisions
@@ -73,17 +79,22 @@ $ .venv/bin/origin-run --config configs/pilot.json --store runs --jobs 6
   but it still trails the random control. Reported honestly; it bounds RL claims.
 * The **scripted heuristic** is privileged (global BFS) and is a reference, not a
   like-for-like competitor.
-* **Interactive browser smoke test not run**: the available browser tool cannot
-  reach loopback addresses, so the UI was verified by build + static types + an
-  API-contract test, not by a live headless render. This is a limitation, not a pass.
+* **Interactive browser smoke test** — now covered: `scripts/e2e_lab.sh` runs 6
+  Playwright/Chromium tests against the live API + production UI, and CI runs them.
 * Pilots use ≤5 seeds; results are **preliminary**.
 
 ## Blockers
 
-* **EPYC compute server unreachable** from this workstation (no SSH host entry; the
-  hostname does not resolve; port 22 closed). Work stayed CPU-only on the
-  workstation. Documented in `infra/README.md`; `--jobs` distribution is ready for
-  when the node is reachable.
+* **EPYC compute node is offline.** Diagnosed precisely: the node is on the
+  Tailscale tailnet as `epyc` = `100.127.74.34`
+  (`epyc.taile5788a.ts.net`), but `tailscale status` reports
+  **`offline, last seen 4d ago`** and SSH:22 times out. This is not a
+  configuration gap on this host — the machine is powered down / off the tailnet.
+  The multi-host path is ready and correct: `scripts/origin_remote_worker.sh`
+  mirrors the repo, runs the campaign remotely under `--jobs`, and pulls results
+  back (trial ids are deterministic, so the merge is idempotent). When the node
+  returns, one command distributes the work. Related nodes seen on the tailnet:
+  `hx370` (windows), `hx370-1` (this WSL host), `poco-f7` (android).
 
 ## Remaining work
 

@@ -58,6 +58,19 @@ Inspect results / launch the read API:
 .venv/bin/origin-api --store runs --host 127.0.0.1 --port 8788
 ```
 
+Run the browser end-to-end tests (starts the API and the UI, then tears them down):
+
+```bash
+scripts/e2e_lab.sh
+```
+
+Distribute a campaign to the compute node when it is online:
+
+```bash
+scripts/origin_remote_worker.sh --check
+scripts/origin_remote_worker.sh --config configs/pilot.json --jobs 32
+```
+
 ## Repository layout
 
 ```text
