@@ -1,0 +1,69 @@
+"""Tests for the registered statistical helpers.
+
+These guard the analysis used to decide H1: a wrong bootstrap or a wrong decision
+rule silently changes a scientific conclusion, so the behaviour is pinned here.
+"""
+
+from __future__ import annotations
+
+import numpy as np
+
+from origin.evaluation.stats import DiffResult, bootstrap_diff_ci, mann_whitney
+
+
+def test_bootstrap_ci_is_deterministic_given_seed():
+    a = [1.0, 2.0, 3.0, 4.0, 5.0]
+    b = [2.0, 2.5, 3.0, 3.5, 4.0]
+    r1 = bootstrap_diff_ci(a, b, resamples=500, seed=7)
+    r2 = bootstrap_diff_ci(a, b, resamples=500, seed=7)
+    assert (r1.point, r1.lo, r1.hi) == (r2.point, r2.lo, r2.hi)
+
+
+def test_bootstrap_ci_contains_zero_for_identical_samples():
+    a = [1.0, 2.0, 3.0, 4.0, 5.0]
+    r = bootstrap_diff_ci(a, a, resamples=1000, seed=1)
+    assert r.point == 0.0
+    assert r.lo <= 0.0 <= r.hi
+    assert not r.excludes_zero
+    assert r.verdict == "inconclusive"
+
+
+def test_bootstrap_ci_excludes_zero_for_separated_samples():
+    a = [10.0, 11.0, 12.0, 13.0, 14.0]
+    b = [0.0, 1.0, 2.0, 3.0, 4.0]
+    r = bootstrap_diff_ci(a, b, resamples=2000, seed=1)
+    assert r.point == 10.0
+    assert r.excludes_zero
+    assert r.lo > 0
+    assert r.verdict == "supported (direction)"
+
+
+def test_verdict_is_falsified_when_ci_excludes_zero_negative():
+    r = DiffResult(point=-1.0, lo=-2.0, hi=-0.1, n_a=5, n_b=5)
+    assert r.excludes_zero
+    assert r.verdict == "falsified for this method"
+
+
+def test_mann_whitney_detects_separation_and_is_symmetric():
+    a = [10.0, 11.0, 12.0, 13.0, 14.0, 15.0]
+    b = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0]
+    u1, p1 = mann_whitney(a, b)
+    u2, p2 = mann_whitney(b, a)
+    assert p1 == p2, "two-sided p must not depend on argument order"
+    assert p1 < 0.01
+    assert u1 + u2 == len(a) * len(b), "U statistics must be complementary"
+
+
+def test_mann_whitney_high_p_for_similar_samples():
+    rng = np.random.default_rng(0)
+    a = rng.normal(0, 1, 20)
+    b = rng.normal(0, 1, 20)
+    _u, p = mann_whitney(a, b)
+    assert p > 0.05
+
+
+def test_bootstrap_rejects_empty_sample():
+    import pytest
+
+    with pytest.raises(ValueError):
+        bootstrap_diff_ci([], [1.0, 2.0])

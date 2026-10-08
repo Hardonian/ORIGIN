@@ -30,4 +30,6 @@ fixed-objective evolution on held-out and transfer metrics.
 
 ## Status
 
-Preliminary — see `research/reports/ORIGIN_Initial_Research_Report.md`.
+**Tested and INCONCLUSIVE at n=10.** The pre-registered powered replication is in
+`../../reports/H1_powered_analysis.md`; results and non-replication of the 5-seed
+pilot are discussed in `../../reports/ORIGIN_Initial_Research_Report.md`.

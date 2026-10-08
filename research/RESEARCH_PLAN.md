@@ -13,7 +13,12 @@
 > unseen evaluation environments and to changed morphology relative to
 > fixed-objective evolutionary optimization.
 
-Status: **to be tested**. The pilot (Milestone 8) is a first, preliminary probe.
+Status: **tested; INCONCLUSIVE at n=10.** The 5-seed pilot showed a positive
+direction for novelty search (+0.362), but the pre-registered 10-seed replication
+did **not** reproduce it (novelty −0.228, 95% CI [−1.427, +0.998]; MAP-Elites
+−0.038, 95% CI [−0.972, +0.965]; both CIs span zero). Reporting the replication
+as inconclusive rather than the pilot as a result is the point of the platform.
+See `reports/H1_powered_analysis.md` and `reports/ORIGIN_Initial_Research_Report.md`.
 
 ## Falsification
 

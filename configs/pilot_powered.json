@@ -1,0 +1,36 @@
+{
+  "name": "powered_foraging_replication",
+  "protocol": "powered_replication_H1",
+  "description": "Pre-registered replication of H1 (research/protocols/powered_replication.md). Identical task and budget to the pilot; 10 independent seeds instead of 5 for a lower-variance estimate and an interval-based analysis. No tuning against held-out seeds.",
+  "env": {
+    "height": 10,
+    "width": 10,
+    "max_steps": 140,
+    "terrain": "random",
+    "obstacle_density": 0.02,
+    "n_resources": 5,
+    "n_hazards": 0,
+    "resource_regen": false,
+    "step_penalty": 0.001,
+    "wall_penalty": 0.0,
+    "hazard_penalty": 0.25,
+    "hazard_energy_drain": 5.0,
+    "resource_reward": 1.0,
+    "energy_start": 100.0,
+    "energy_step": 0.1,
+    "energy_capacity": 100.0,
+    "seed": 0
+  },
+  "train_seeds": [11, 22, 33, 44],
+  "test_seeds": [101, 202, 303, 404],
+  "budget": 500000,
+  "seeds": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+  "include_baselines": ["random", "heuristic"],
+  "transfer": {"adapt": true, "budget": 50000},
+  "algorithms": {
+    "fixed_objective_ga": {"pop_size": 32, "mutation_rate": 0.3, "mutation_scale": 0.5, "morph_strength": 0.3},
+    "novelty_search": {"pop_size": 32, "mutation_rate": 0.3, "mutation_scale": 0.5},
+    "map_elites": {"batch": 16, "grid_shape": [10, 10], "mutation_rate": 0.3, "mutation_scale": 0.5, "morph_strength": 0.3},
+    "reinforce": {"hidden": [24], "episodes_per_update": 4, "lr": 0.01, "gamma": 0.99, "entropy_coef": 0.02}
+  }
+}

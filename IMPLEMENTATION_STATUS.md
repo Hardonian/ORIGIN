@@ -16,7 +16,7 @@
 | 5 | Experiment orchestration | **done** | `origin.experiments.runner` + `store`; manifests, resume, cancellation, bounded concurrency, CSV/Parquet |
 | 6 | Research lab UI | **done** | 7 screens build; 6 headless-Chromium E2E tests verify live-data rendering |
 | 7 | Local compute distribution | **partial** | CPU-first; `--jobs` concurrency; `scripts/origin_remote_worker.sh` ready. The EPYC tailnode is **offline** (see Blockers) |
-| 8 | First research campaign | **done** | 30/30 trials, 0 failures; report auto-generated from stored artifacts |
+| 8 | First research campaign | **done** | Pilot 30/30 + pre-registered powered replication 60/60 trials, 0 failures. **H1 inconclusive at n=10** — the pilot's positive direction did not replicate; registered interval analysis in `research/reports/H1_powered_analysis.md` |
 
 ## Verified features
 
@@ -32,13 +32,13 @@
 
 ```
 $ .venv/bin/python -m pytest tests -q
-57 passed, 6 skipped        # skipped = browser E2E (opt-in)
+64 passed, 6 skipped        # skipped = browser E2E (opt-in)
 
 $ .venv/bin/ruff check packages tests scripts benchmarks
 All checks passed!
 
 $ .venv/bin/mypy
-Success: no issues found in 26 source files
+Success: no issues found in 27 source files
 
 $ cd apps/lab && npm run lint && npm run typecheck && npm run build
 ✔ No ESLint warnings or errors; typecheck clean; production build OK (10 routes)
@@ -49,8 +49,12 @@ $ node apps/lab/scripts/smoke-api.mjs   # UI↔API contract
 $ scripts/e2e_lab.sh                    # real headless browser against live API
 6 passed
 
-$ .venv/bin/origin-run --config configs/pilot.json --store runs --jobs 6
-30 trials run, 0 failed
+$ .venv/bin/origin-run --config configs/pilot_powered.json --store runs --jobs 8
+60 trials run, 0 failed
+
+$ .venv/bin/python scripts/analyze.py --store runs --experiment d0ef7208a010
+novelty_search - fixed_objective_ga: -0.228, 95% CI [-1.427, +0.998] -> inconclusive
+map_elites     - fixed_objective_ga: -0.038, 95% CI [-0.972, +0.965] -> inconclusive
 
 $ scripts/origin_remote_worker.sh --check
 ERROR: epyc is not reachable over SSH.   (expected: node offline — see Blockers)
@@ -101,9 +105,11 @@ ERROR: epyc is not reachable over SSH.   (expected: node offline — see Blocker
 1. Upgrade the lab frontend to `next@16` to clear the 4 documented advisories
    (requires migrating `next lint` → ESLint CLI and React 19).
 2. Articulated-physics embodiment (Milestone 4) with a real physics engine.
-3. A powered replication of H1 (more seeds/budgets) and a QD-favouring task.
+3. A QD-favouring task and a higher-powered replication: at n=10 the CIs still
+   span 0, so no diversity-method advantage is established. A paired design (the
+   methods share seeds) would be more efficient than the registered unpaired test.
 4. Optional GPU-accelerated population evaluation on the compute node.
-5. A headless browser (Playwright) smoke test for the UI in CI.
+5. A headless browser (Playwright) smoke test for the UI in CI — **done**, in CI.
 
 ## Reproduction commands
 

@@ -64,6 +64,19 @@ Run the browser end-to-end tests (starts the API and the UI, then tears them dow
 scripts/e2e_lab.sh
 ```
 
+Run the pre-registered powered replication of H1, then generate its report and the
+registered statistical analysis (both generated from the store, no hand-entered numbers):
+
+```bash
+.venv/bin/origin-run --config configs/pilot_powered.json --store runs --jobs 8
+.venv/bin/python scripts/make_report.py --store runs --experiment <id> --out research/reports/ORIGIN_Initial_Research_Report.md
+.venv/bin/python scripts/analyze.py      --store runs --experiment <id> --out research/reports/H1_powered_analysis.md
+```
+
+The analysis (`research/protocols/powered_replication.md`) is fixed in advance:
+a bootstrap 95% CI on the difference in means plus a two-sided Mann–Whitney U.
+No other test is run and the conclusion is not switched to a more favourable statistic.
+
 Distribute a campaign to the compute node when it is online:
 
 ```bash

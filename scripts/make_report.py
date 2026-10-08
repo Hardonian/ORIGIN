@@ -27,6 +27,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--store", default="runs")
     ap.add_argument("--experiment", default=None, help="experiment id (default: newest)")
+    ap.add_argument("--exploratory", default=None, help="optional earlier experiment id for a replication check")
     ap.add_argument("--out", default="research/reports/ORIGIN_Initial_Research_Report.md")
     args = ap.parse_args()
 
@@ -85,6 +86,56 @@ def main() -> int:
             if "adapted_mean_reward" in entry:
                 slot["adapt"].append(entry["adapted_mean_reward"])
 
+    # ---- exploratory vs primary replication check ----
+    repl_lines: list[str] = []
+    if args.exploratory:
+        ex_trials = [t for t in store.trials(args.exploratory) if t["status"] == "done"]
+
+        def _per_seed(ts):
+            out: dict[str, dict[int, float]] = {}
+            for t in ts:
+                m = json.loads(t["metrics_json"]) if t.get("metrics_json") else {}
+                v = m.get("test_mean_reward")
+                if v is not None:
+                    out.setdefault(t["algorithm"], {})[int(t["seed"])] = float(v)
+            return out
+
+        ex = _per_seed(ex_trials)
+        pr = _per_seed(trials)
+        repl_lines.append("## Prior exploratory run and replication check")
+        repl_lines.append("")
+        repl_lines.append(f"Exploratory experiment `{args.exploratory}` vs the primary run `{exp_id}`. "
+                          "The task and budget are identical; only the seed count differs, so this is a")
+        repl_lines.append("replication, not a re-tune.")
+        repl_lines.append("")
+        repl_lines.append("| method | exploratory n | exploratory mean | primary n | primary mean | change |")
+        repl_lines.append("|---|---|---|---|---|---|")
+        for algo in order:
+            if algo in ex and algo in pr:
+                e_vals, p_vals = list(ex[algo].values()), list(pr[algo].values())
+                repl_lines.append(
+                    f"| `{algo}` | {len(e_vals)} | {_txt(st.mean(e_vals))} | {len(p_vals)} | "
+                    f"{_txt(st.mean(p_vals))} | {_txt(st.mean(p_vals) - st.mean(e_vals))} |"
+                )
+        repl_lines.append("")
+        # determinism: overlapping (algorithm, seed) pairs must match exactly
+        overlap = 0
+        mismatches = 0
+        for algo in set(ex) & set(pr):
+            for seed in set(ex[algo]) & set(pr[algo]):
+                overlap += 1
+                if ex[algo][seed] != pr[algo][seed]:
+                    mismatches += 1
+        repl_lines.append(
+            f"**Determinism cross-check:** {overlap} overlapping (method, seed) pairs reproduced "
+            f"across the two independent experiments with **{mismatches} mismatches**."
+        )
+        repl_lines.append("")
+        repl_lines.append("> The registered analysis of the primary run is in "
+                          "`research/reports/H1_powered_analysis.md`. Where an exploratory")
+        repl_lines.append("> direction does not replicate at higher n, the replication governs.")
+        repl_lines.append("")
+
     # ---- plots ----
     plot_lines = []
     try:
@@ -100,7 +151,8 @@ def main() -> int:
     a = lines.append
     a("# Open-Ended Evolution and Cross-Morphology Generalization: A Reproducible Experimental Framework")
     a("")
-    a("**Author:** Scott Hardie (Hardonian) · **Status:** PRELIMINARY, not peer reviewed.")
+    a("**Author:** Scott Hardie (Hardonian) · **Status:** 10 seeds; interval-based registered")
+    a("analysis in `research/reports/H1_powered_analysis.md`. Not peer reviewed.")
     a("")
     a("> This report was generated automatically from the stored experiment artifacts by")
     a("> `scripts/make_report.py`. Every figure below is read from the experiment store; no")
@@ -139,16 +191,20 @@ def main() -> int:
     nov = by_algo.get("novelty_search", {}).get("test", [])
     qd = by_algo.get("map_elites", {}).get("test", [])
     if ga and nov:
-        diff = st.mean(nov) - st.mean(ga)
-        pooled = st.pstdev(ga + nov) if len(ga + nov) > 1 else 0.0
-        a("### Directional test of H1")
+        from origin.evaluation.stats import bootstrap_diff_ci
+
+        a("### Registered analysis of H1")
         a("")
-        a(f"* Novelty search minus fixed-objective GA on held-out reward: **{diff:+.3f}** "
-          f"(pooled sd ≈ {pooled:.3f}, n={len(ga)}–{len(nov)}).")
-        if qd:
-            a(f"* MAP-Elites minus fixed-objective GA: **{st.mean(qd) - st.mean(ga):+.3f}**.")
-        a("* With this seed count the difference is **not** a powered statistical test; it is a")
-        a("  preliminary directional signal. See limitations.")
+        for label, vals in [("Novelty search", nov), ("MAP-Elites", qd)]:
+            if not vals:
+                continue
+            r = bootstrap_diff_ci(vals, ga, seed=20261008)
+            a(f"* {label} − fixed-objective GA: **{r.point:+.3f}** "
+              f"(95% bootstrap CI [{r.lo:+.3f}, {r.hi:+.3f}], n={r.n_a}–{r.n_b}) → **{r.verdict}**.")
+        a("")
+        a("* The registered interval analysis overrides any informal reading of the point")
+        a("  estimates. Where the 95% CI spans zero the result is reported as **inconclusive**,")
+        a("  not as a near-miss. Full analysis: `research/reports/H1_powered_analysis.md`.")
         a("")
 
     a("## 4. Cross-morphology and perturbation transfer")
@@ -173,6 +229,9 @@ def main() -> int:
                 cells.append(z)
         a(f"| `{name}` | {kind} | " + " | ".join(cells) + " |")
     a("")
+
+    if repl_lines:
+        lines.extend(repl_lines)
 
     a("## 5. Compute")
     a("")

@@ -30,18 +30,18 @@ Commit under verification: `ebc2629` (git, `main`, clean tree at run time).
 
 ```
 $ .venv/bin/python -m pytest tests -q
-57 passed, 6 skipped        # the 6 skipped are the browser E2E tests (opt-in)
+64 passed, 6 skipped        # the 6 skipped are the browser E2E tests (opt-in)
 
 $ scripts/e2e_lab.sh        # starts API + production UI, runs the browser E2E, tears down
 6 passed
 ```
 
-63 tests collected in total: 57 unit/integration (always run) + 6 browser E2E
+70 tests collected in total: 64 unit/integration (always run) + 6 browser E2E
 (require `ORIGIN_E2E=1` and running servers; invoked by `scripts/e2e_lab.sh`).
 
 Breakdown: `test_environment.py` (21), `test_organisms.py` (9), `test_evolution.py`
 (5), `test_evaluation.py` (6), `test_experiments.py` (11), `test_security.py` (5),
-`e2e/test_lab_e2e.py` (6, opt-in).
+`test_stats.py` (7), `e2e/test_lab_e2e.py` (6, opt-in).
 
 ```
 $ .venv/bin/ruff check packages tests scripts benchmarks
@@ -82,6 +82,30 @@ Mesh of results (held-out reward, n=5 seeds, 500 000 interactions/method/seed):
 | `map_elites` | 2.637 | ±0.246 |
 | `random` | 2.010 | ±0.187 |
 | `reinforce` | 1.121 | ±0.528 |
+
+## Replication and cross-experiment determinism
+
+The 5-seed pilot was replicated pre-registered at 10 seeds with an identical task
+and budget (`research/protocols/powered_replication.md`). Two independent
+experiments (`b61d1ac9a348`, `d0ef7208a010`) were compared on their 30 overlapping
+(algorithm, seed) pairs:
+
+```
+30 overlapping (method, seed) pairs reproduced across the two independent
+experiments with 0 mismatches   (exact to 6 decimal places)
+```
+
+Held-out outcomes:
+
+| comparison | mean diff | 95% bootstrap CI | Mann–Whitney p | verdict |
+|---|---|---|---|---|
+| `novelty_search` − `fixed_objective_ga` | −0.228 | [−1.427, +0.998] | 0.5423 | **inconclusive** |
+| `map_elites` − `fixed_objective_ga` | −0.038 | [−0.972, +0.965] | 0.6219 | **inconclusive** |
+
+The pilot's +0.362 direction for novelty search **did not replicate**. The
+replication governs, and the result is reported as inconclusive rather than as a
+near-miss. Note this is a *negative/absent* result for the project's own primary
+hypothesis, published because the platform exists to produce honest evidence.
 
 ## UI build & contract
 
@@ -169,12 +193,17 @@ A green test suite is not proof of scientific correctness. Findings:
 * **No tuning against held-out seeds.** Held-out seeds were used only for
   reporting; the two task redesigns were judged on *training* behaviour and a
   held-out sanity check performed once, not iterated against.
-* **Statistical power is inadequate** for a claim: 5 seeds, wide standard errors,
-  no hypothesis test. The result is labelled preliminary throughout.
+* **Statistical power:** the powered replication uses 10 seeds with a
+  pre-registered interval analysis (bootstrap CI + Mann–Whitney U). The CIs still
+  span zero, so H1 is **inconclusive** — the honest conclusion is "not
+  established", not "supported" and not "refuted".
+* **An exploratory positive direction did not replicate** (novelty +0.362 at n=5
+  → −0.228 at n=10). This is reported prominently rather than quietly dropped.
 
 ## Honest limitations
 
-* The pilot cannot distinguish H1 from noise at this sample size.
+* H1 is **not established**: at n=10 the 95% CIs for both diversity methods span
+  zero, and the exploratory positive direction did not replicate.
 * The heuristic control is privileged (global BFS) and is a reference, not a peer.
 * `reinforce` is a weak baseline here; conclusions about RL are bounded, not supported.
 * No articulated-physics embodiment exists yet (Milestone 4 is partial).
