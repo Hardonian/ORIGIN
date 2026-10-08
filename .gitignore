@@ -21,15 +21,18 @@ out/
 .env.local
 .env*.local
 
-# ORIGIN generated data (never commit)
-datasets/*
-!datasets/README.md
-!datasets/fixtures/
-!datasets/fixtures/**
-runs/
-artifacts/
-research/reports/*.parquet
-research/reports/*.csv
+# ORIGIN generated data (never commit).
+# NOTE: patterns are anchored with a leading "/" so they only match at the repo
+# root. A bare "artifacts/" also matched apps/lab/app/artifacts/ and silently
+# excluded the artifacts page source from the repository.
+/datasets/*
+!/datasets/README.md
+!/datasets/fixtures/
+!/datasets/fixtures/**
+/runs/
+/artifacts/
+/research/reports/*.parquet
+/research/reports/*.csv
 *.db
 *.db-wal
 *.db-shm
@@ -37,7 +40,7 @@ research/reports/*.csv
 *.sqlite3
 
 # Model checkpoints / large blobs
-checkpoints/
+/checkpoints/
 *.pt
 *.pth
 *.ckpt
