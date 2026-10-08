@@ -53,6 +53,11 @@ def _call(policy: Any, obs: np.ndarray, env: GridWorld, rng: np.random.Generator
 
 def run_episode(env: GridWorld, policy: Any, seed: int | None = None, record_trace: bool = False) -> EpisodeResult | tuple[EpisodeResult, dict[str, Any]]:
     obs, info = env.reset(seed=seed)
+    # Per-episode reseeding keeps baseline results independent of episode order
+    # (a stateful policy's RNG/program counter must not carry over).
+    reset_policy = getattr(policy, "reset", None)
+    if callable(reset_policy):
+        reset_policy(int(seed) if seed is not None else 0)
     total = 0.0
     steps = 0
     done = False

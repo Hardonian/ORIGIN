@@ -72,10 +72,19 @@ def map_elites(
     mutation_scale: float = 0.3,
     morph_strength: float = 0.4,
     max_iterations: int = 1000,
+    desc_dims: tuple[int, int] = (0, 2),
+    bounds: list[tuple[float, float]] | None = None,
 ) -> OptimizationResult:
+    """MAP-Elites over a 2-D behavioural archive.
+
+    ``desc_dims``/``bounds`` select and scale the descriptor axes the archive is laid
+    out over. The defaults reproduce the grid behaviour (resources collected vs
+    episode-length fraction); another simulator passes its own axes and ranges rather
+    than the archive silently assuming grid descriptor semantics.
+    """
     rng = np.random.default_rng(seed)
-    desc_dims = (0, 2)  # (resources collected, episode-length fraction)
-    bounds = [(0.0, max(4.0, float(base_env.n_resources))), (0.0, 1.0)]
+    if bounds is None:
+        bounds = [(0.0, max(4.0, float(base_env.n_resources))), (0.0, 1.0)]
     archive = Archive(grid_shape, desc_dims, bounds)
     history: list[dict[str, Any]] = []
     all_desc: list[list[float]] = []

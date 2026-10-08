@@ -23,6 +23,7 @@ dependencies = [
   "matplotlib>=3.8",
   "PyYAML>=6.0",
   "filelock>=3.13",
+  "pybullet>=3.2",
 ]
 
 [project.optional-dependencies]
@@ -60,4 +61,4 @@ minversion = "8.0"
 testpaths = ["tests"]
 addopts = "-q"
 filterwarnings = ["ignore::DeprecationWarning"]
-markers = ["e2e: end-to-end browser tests (require ORIGIN_E2E=1 and running servers)"]
+markers = ["e2e: end-to-end browser tests (require ORIGIN_E2E=1 and running servers)", "embodied: articulated-physics tests (PyBullet DIRECT)", "integration: multi-component tests that run a real campaign end-to-end"]

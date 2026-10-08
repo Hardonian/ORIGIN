@@ -28,7 +28,17 @@ from typing import Any
 
 import numpy as np
 
+from origin.environments.embodied import (
+    EmbodiedConfig,
+    EmbodiedCreature,
+    embodied_morphology_variants,
+    embodied_perturbation_variants,
+)
 from origin.environments.gridworld import GridWorldConfig
+from origin.evaluation.embodied import (
+    EmbodiedEvaluator,
+    evaluate_embodied,
+)
 from origin.evaluation.harness import (
     Evaluator,
     evaluate_policy,
@@ -38,13 +48,19 @@ from origin.evaluation.harness import (
 from origin.evolution import fine_tune, fixed_objective_ga, map_elites, novelty_search
 from origin.learning import reinforce
 from origin.organisms.organism import Organism
-from origin.organisms.policies import HeuristicPolicy, RandomPolicy
+from origin.organisms.policies import GaitPolicy, HeuristicPolicy, RandomPolicy
 
 ALGORITHMS: dict[str, Any] = {
     "fixed_objective_ga": fixed_objective_ga,
     "novelty_search": novelty_search,
     "map_elites": map_elites,
     "reinforce": reinforce,
+}
+
+# Baselines available per simulator kind.
+BASELINES: dict[str, tuple[str, ...]] = {
+    "gridworld": ("random", "heuristic"),
+    "embodied": ("random", "scripted_gait"),
 }
 
 DEFAULT_ALGO_KWARGS: dict[str, dict[str, Any]] = {
@@ -58,7 +74,17 @@ DEFAULT_ALGO_KWARGS: dict[str, dict[str, Any]] = {
 # ---------------------------------------------------------------------- #
 # Config helpers
 # ---------------------------------------------------------------------- #
-def build_base_env(env_cfg: dict[str, Any]) -> GridWorldConfig:
+def sim_kind(cfg: dict[str, Any]) -> str:
+    """Which simulator a campaign targets: the grid world or articulated physics."""
+    kind = str(cfg.get("env_kind", "gridworld"))
+    if kind not in BASELINES:
+        raise ValueError(f"unknown env_kind {kind!r}; expected one of {sorted(BASELINES)}")
+    return kind
+
+
+def build_base_env(env_cfg: dict[str, Any], kind: str = "gridworld") -> Any:
+    if kind == "embodied":
+        return EmbodiedConfig.from_dict(env_cfg)
     return GridWorldConfig.from_dict(env_cfg)
 
 
@@ -81,11 +107,15 @@ def validate_config(cfg: dict[str, Any]) -> None:
         raise ValueError(f"train/test seed leakage: {sorted(overlap)}")
     if cfg["budget"] < 1:
         raise ValueError("budget must be >= 1")
+    kind = sim_kind(cfg)
     algos = cfg.get("algorithms", {})
     for name in algos:
         if name not in ALGORITHMS:
             raise ValueError(f"unknown algorithm: {name}")
-    build_base_env(cfg["env"])  # raises on invalid env config
+    for name in cfg.get("include_baselines", []) or []:
+        if name not in BASELINES[kind]:
+            raise ValueError(f"baseline {name!r} not available for env_kind={kind!r}; expected {BASELINES[kind]}")
+    build_base_env(cfg["env"], kind)  # raises on invalid env config
 
 
 def environment_manifest() -> dict[str, Any]:
@@ -131,11 +161,15 @@ def _serialize_org(org: Organism | None) -> dict[str, Any] | None:
 
 
 def run_trial(algorithm: str, seed: int, cfg: dict[str, Any]) -> dict[str, Any]:
-    base = build_base_env(cfg["env"])
+    kind = sim_kind(cfg)
+    base = build_base_env(cfg["env"], kind)
     train_seeds = list(cfg["train_seeds"])
     test_seeds = list(cfg["test_seeds"])
     budget = int(cfg["budget"])
     kwargs = {**DEFAULT_ALGO_KWARGS.get(algorithm, {}), **cfg.get("algorithms", {}).get(algorithm, {})}
+
+    if kind == "embodied":
+        return _run_trial_embodied(algorithm, seed, base, train_seeds, test_seeds, budget, kwargs, cfg)
 
     if algorithm in ("random", "heuristic"):
         return _run_baseline(algorithm, seed, base, train_seeds, test_seeds, cfg)
@@ -167,8 +201,10 @@ def run_trial(algorithm: str, seed: int, cfg: dict[str, Any]) -> dict[str, Any]:
         metrics["test_mean_reward"] = test["mean_reward"]
         metrics["test_std_reward"] = test["std_reward"]
         metrics["test_mean_collected"] = test["mean_collected"]
+        # Training and evaluation steps are distinct currencies (see embodied path).
+        metrics["evaluation_interactions"] = test["interactions"]
         # morphology + perturbation transfer (zero-shot, then adapted)
-        transfer = _transfer_report(best, base, test_seeds, cfg)
+        transfer = _transfer_report(best, base, train_seeds, test_seeds, cfg)
 
     return {
         "algorithm": algorithm,
@@ -197,7 +233,9 @@ def _run_baseline(algorithm: str, seed: int, base: GridWorldConfig, train_seeds:
     return {
         "algorithm": algorithm,
         "seed": seed,
-        "interactions": test["interactions"],
+        # Baselines do not train: zero training interactions, evaluation counted
+        # separately (same currency contract as the learner trials).
+        "interactions": 0,
         "budget": int(cfg["budget"]),
         "best_fitness": train["mean_reward"],
         "metrics": {
@@ -206,13 +244,200 @@ def _run_baseline(algorithm: str, seed: int, base: GridWorldConfig, train_seeds:
             "test_mean_reward": test["mean_reward"],
             "test_std_reward": test["std_reward"],
             "test_mean_collected": test["mean_collected"],
-            "interactions": test["interactions"],
+            "interactions": 0,
+            "evaluation_interactions": test["interactions"],
             "baseline": True,
         },
         "transfer": transfer,
         "best_organism": None,
         "status": "done",
     }
+
+
+def _run_trial_embodied(
+    algorithm: str,
+    seed: int,
+    base: Any,
+    train_seeds: list[int],
+    test_seeds: list[int],
+    budget: int,
+    kwargs: dict[str, Any],
+    cfg: dict[str, Any],
+) -> dict[str, Any]:
+    """A campaign trial against the articulated-physics simulator.
+
+    Shares the metric contract with the grid trials so the store, analysis and UI
+    treat both kinds identically.
+    """
+    if algorithm in BASELINES["embodied"]:
+        return _run_baseline_embodied(algorithm, seed, base, train_seeds, test_seeds, cfg)
+
+    fn = ALGORITHMS[algorithm]
+    evaluator = EmbodiedEvaluator(base_env=base, train_seeds=train_seeds, budget=budget)
+    run_kwargs = dict(kwargs)
+    if algorithm == "reinforce":
+        # The RL loop builds its own envs; hand it a factory for this body.
+        run_kwargs["env_factory"] = lambda: EmbodiedCreature(base)
+    if algorithm == "map_elites":
+        # The embodied descriptor is [travelled, upright_frac, energy, rate, time_frac];
+        # archive over (distance travelled, upright fraction) with explicit ranges so
+        # the archive never assumes grid descriptor semantics.
+        run_kwargs.setdefault("desc_dims", (0, 1))
+        run_kwargs.setdefault("bounds", [(0.0, max(1.0, float(base.target_distance))), (0.0, 1.0)])
+
+    t0 = time.time()
+    result = fn(evaluator, base, seed=seed, **run_kwargs)
+    train_fitness = result.best_fitness
+
+    metrics: dict[str, Any] = {
+        "algorithm_version": result.version,
+        "interactions": result.interactions,
+        "budget": budget,
+        "train_fitness": train_fitness,
+        "n_generations": len(result.history),
+        "history": _downsample(result.history, 60),
+        "descriptors_mean": (np.mean(result.descriptors, axis=0).tolist() if result.descriptors else None),
+        "descriptor_spread": (float(np.mean(np.std(result.descriptors, axis=0))) if result.descriptors else None),
+        "wall_seconds": round(time.time() - t0, 3),
+        "algorithm_extra": result.extra,
+        "env_kind": "embodied",
+    }
+
+    transfer: dict[str, Any] = {}
+    best = result.best_organism
+    if best is not None:
+        test = evaluate_embodied(base, best, test_seeds)
+        metrics["test_mean_reward"] = test["mean_reward"]
+        metrics["test_std_reward"] = test["std_reward"]
+        metrics["test_mean_distance_travelled"] = test["mean_distance_travelled"]
+        metrics["test_fall_rate"] = test["fall_rate"]
+        metrics["test_target_rate"] = test["target_rate"]
+        # Training and evaluation steps are distinct currencies: "interactions"
+        # is the budget's unit (training only), evaluation is counted separately
+        # so "compute cost per method" never mixes the two.
+        metrics["evaluation_interactions"] = test["interactions"]
+        transfer = _transfer_report_embodied(best, base, train_seeds, test_seeds, cfg)
+
+    return {
+        "algorithm": algorithm,
+        "seed": seed,
+        "interactions": result.interactions,
+        "budget": budget,
+        "best_fitness": train_fitness,
+        "metrics": metrics,
+        "transfer": transfer,
+        "best_organism": _serialize_org(best),
+        "status": "done",
+    }
+
+
+def _run_baseline_embodied(
+    algorithm: str,
+    seed: int,
+    base: Any,
+    train_seeds: list[int],
+    test_seeds: list[int],
+    cfg: dict[str, Any],
+) -> dict[str, Any]:
+    pol = RandomPolicy(base.n_actions, seed=seed) if algorithm == "random" else GaitPolicy(base.n_actions, seed=seed)
+    train = evaluate_embodied(base, pol, train_seeds)
+    test = evaluate_embodied(base, pol, test_seeds)
+    transfer: dict[str, Any] = {}
+    for name, vcfg in {**embodied_morphology_variants(base), **embodied_perturbation_variants(base)}.items():
+        try:
+            r = evaluate_embodied(vcfg, pol, test_seeds)
+            transfer[name] = {"zero_shot_mean_reward": r["mean_reward"], "zero_shot_std": r["std_reward"]}
+        except Exception as exc:  # pragma: no cover
+            transfer[name] = {"error": str(exc)}
+    return {
+        "algorithm": algorithm,
+        "seed": seed,
+        # Baselines do not train: zero training interactions, evaluation counted
+        # separately (same currency contract as the learner trials).
+        "interactions": 0,
+        "budget": int(cfg["budget"]),
+        "best_fitness": train["mean_reward"],
+        "metrics": {
+            "train_fitness": train["mean_reward"],
+            "train_std": train["std_reward"],
+            "test_mean_reward": test["mean_reward"],
+            "test_std_reward": test["std_reward"],
+            "test_mean_distance_travelled": test["mean_distance_travelled"],
+            "test_fall_rate": test["fall_rate"],
+            "test_target_rate": test["target_rate"],
+            "interactions": 0,
+            "evaluation_interactions": test["interactions"],
+            "baseline": True,
+            "env_kind": "embodied",
+        },
+        "transfer": transfer,
+        "best_organism": None,
+        "status": "done",
+    }
+
+
+def _transfer_report_embodied(
+    org: Organism,
+    base: Any,
+    train_seeds: list[int],
+    test_seeds: list[int],
+    cfg: dict[str, Any],
+) -> dict[str, Any]:
+    """Zero-shot and adapted transfer across distinct physical bodies.
+
+    Adaptation runs on ``train_seeds`` only; every reported score (zero-shot and
+    adapted) is measured on the held-out ``test_seeds``, so an adaptation gain is
+    never in-sample.
+    """
+    tcfg = cfg.get("transfer", {}) or {}
+    do_adapt = bool(tcfg.get("adapt", True))
+    adapt_budget = int(tcfg.get("budget", max(1, int(cfg["budget"]) // 10)))
+    adapt_seeds = train_seeds[: min(2, len(train_seeds))]
+    report: dict[str, Any] = {}
+
+    for name, vcfg in embodied_morphology_variants(base).items():
+        try:
+            zs = evaluate_embodied(vcfg, org, test_seeds)
+            entry: dict[str, Any] = {
+                "zero_shot_mean_reward": zs["mean_reward"],
+                "zero_shot_std": zs["std_reward"],
+                "zero_shot_fall_rate": zs["fall_rate"],
+                "zero_shot_travelled": zs["mean_distance_travelled"],
+                "kind": "morphology",
+            }
+            if do_adapt and adapt_seeds:
+                ev = EmbodiedEvaluator(base_env=vcfg, train_seeds=adapt_seeds, budget=adapt_budget)
+                ad = fine_tune(
+                    org,
+                    vcfg,
+                    seed=adapt_seeds[0],
+                    budget=adapt_budget,
+                    seeds=adapt_seeds,
+                    evaluator_factory=lambda ev=ev: ev,
+                )
+                assert ad.best_organism is not None
+                after = evaluate_embodied(vcfg, ad.best_organism, test_seeds)
+                entry["adapted_mean_reward"] = after["mean_reward"]
+                entry["adaptation_gain"] = after["mean_reward"] - zs["mean_reward"]
+                entry["adapted_fall_rate"] = after["fall_rate"]
+                entry["adaptation_interactions"] = int(ev.interactions)
+            report[name] = entry
+        except Exception as exc:
+            report[name] = {"error": str(exc), "kind": "morphology"}
+
+    for name, pcfg in embodied_perturbation_variants(base).items():
+        try:
+            zs = evaluate_embodied(pcfg, org, test_seeds)
+            report[name] = {
+                "zero_shot_mean_reward": zs["mean_reward"],
+                "zero_shot_std": zs["std_reward"],
+                "zero_shot_fall_rate": zs["fall_rate"],
+                "kind": "perturbation",
+            }
+        except Exception as exc:
+            report[name] = {"error": str(exc), "kind": "perturbation"}
+
+    return report
 
 
 def _downsample(history: list[dict[str, Any]], n: int) -> list[dict[str, Any]]:
@@ -222,20 +447,35 @@ def _downsample(history: list[dict[str, Any]], n: int) -> list[dict[str, Any]]:
     return [history[i] for i in idx]
 
 
-def _transfer_report(org: Organism, base: GridWorldConfig, test_seeds: list[int], cfg: dict[str, Any]) -> dict[str, Any]:
+def _transfer_report(
+    org: Organism,
+    base: GridWorldConfig,
+    train_seeds: list[int],
+    test_seeds: list[int],
+    cfg: dict[str, Any],
+) -> dict[str, Any]:
+    """Zero-shot and adapted transfer on the grid world.
+
+    Adaptation runs on ``train_seeds`` only and the adapted score is measured on
+    the held-out ``test_seeds`` — reporting ``fine_tune``'s in-sample best fitness
+    here would credit adaptation for memorising its own training seeds.
+    """
     tcfg = cfg.get("transfer", {}) or {}
     do_adapt = bool(tcfg.get("adapt", True))
     adapt_budget = int(tcfg.get("budget", max(1, int(cfg["budget"]) // 20)))
+    adapt_seeds = train_seeds[: min(2, len(train_seeds))]
     report: dict[str, Any] = {}
 
     for name, vcfg in morphology_variants(base).items():
         try:
             zs = evaluate_policy(vcfg, org, test_seeds)
             entry: dict[str, Any] = {"zero_shot_mean_reward": zs["mean_reward"], "zero_shot_std": zs["std_reward"], "kind": "morphology"}
-            if do_adapt:
-                ad = fine_tune(org, vcfg, seed=test_seeds[0] if test_seeds else 0, budget=adapt_budget, seeds=test_seeds[: min(2, len(test_seeds))])
-                entry["adapted_mean_reward"] = ad.best_fitness
-                entry["adaptation_gain"] = ad.best_fitness - zs["mean_reward"]
+            if do_adapt and adapt_seeds:
+                ad = fine_tune(org, vcfg, seed=adapt_seeds[0], budget=adapt_budget, seeds=adapt_seeds)
+                assert ad.best_organism is not None
+                after = evaluate_policy(vcfg, ad.best_organism, test_seeds)
+                entry["adapted_mean_reward"] = after["mean_reward"]
+                entry["adaptation_gain"] = after["mean_reward"] - zs["mean_reward"]
             report[name] = entry
         except Exception as exc:
             report[name] = {"error": str(exc), "kind": "morphology"}

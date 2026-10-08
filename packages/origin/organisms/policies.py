@@ -84,3 +84,34 @@ class HeuristicPolicy:
         step = (node[0] - start[0], node[1] - start[1])
         inv = {v: k for k, v in ACTION_DELTAS.items()}
         return inv.get(step, 4)
+
+
+class GaitPolicy:
+    """Scripted open-loop gait baseline for the articulated-physics task.
+
+    Cycles a fixed motor-primitive program and ignores its observation. This is the
+    embodied analogue of the grid heuristic: a hand-designed control that anchors the
+    bottom of the scale for a locomotion task, so a *learned* policy must beat a fixed
+    gait rather than merely beat noise.
+
+    Note it is deliberately non-adaptive: with no feedback it cannot recover from a
+    fall or compensate for an unfamiliar body, which is exactly the limitation the
+    evolved controllers are meant to overcome.
+    """
+
+    name = "scripted_gait"
+
+    def __init__(self, n_actions: int, seed: int = 0, program: tuple[int, ...] = (2, 2, 3)):
+        self.n_actions = n_actions
+        self.rng = np.random.default_rng(seed)
+        self.program = tuple(a % max(1, n_actions) for a in program) or (0,)
+        self.i = 0
+
+    def reset(self, seed: int) -> None:
+        self.rng = np.random.default_rng(seed)
+        self.i = 0
+
+    def act(self, obs: np.ndarray, env: GridWorld | None = None, deterministic: bool = True) -> int:
+        a = self.program[self.i % len(self.program)]
+        self.i += 1
+        return int(a)

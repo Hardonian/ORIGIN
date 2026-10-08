@@ -102,13 +102,30 @@ def reinforce(
     episodes_per_update: int = 4,
     entropy_coef: float = 0.02,
     max_updates: int = 5000,
+    env_factory: Any | None = None,
 ) -> OptimizationResult:
     rng = np.random.default_rng(seed)
-    morph = Morphology(obs_mode=base_env.obs_mode, obs_radius=base_env.obs_radius, max_speed=base_env.max_speed, energy_capacity=base_env.energy_capacity)
-    cfg = morph.apply(base_env)
-    probe = GridWorld(cfg)
-    in_dim = probe.observation_size
-    net = _PolicyNet([in_dim, *hidden, cfg.n_actions], rng, lr=lr)
+    # Any env exposing reset/step/observation_size/n_actions/close can be optimised
+    # here. The default preserves the original grid behaviour; passing a factory lets
+    # the identical RL loop drive a different simulator (e.g. articulated physics).
+    factory = env_factory
+    if factory is None:
+        morph = Morphology(obs_mode=base_env.obs_mode, obs_radius=base_env.obs_radius, max_speed=base_env.max_speed, energy_capacity=base_env.energy_capacity)
+        _cfg = morph.apply(base_env)
+
+        def _grid_factory() -> Any:
+            return GridWorld(_cfg)
+
+        factory = _grid_factory
+    else:
+        # Caller-supplied simulator: the grid-specific morphology knobs don't apply,
+        # but the organism still needs a morphology record for its lineage metadata.
+        morph = Morphology()
+    probe = factory()
+    in_dim = int(probe.observation_size)
+    n_actions = int(probe.n_actions)
+    probe.close()
+    net = _PolicyNet([in_dim, *hidden, n_actions], rng, lr=lr)
 
     history: list[dict[str, Any]] = []
     update = 0
@@ -121,20 +138,25 @@ def reinforce(
         ep_rewards: list[float] = []
         for _ in range(episodes_per_update):
             s = int(rng.choice(train_seeds))
-            env = GridWorld(cfg)
-            obs, _ = env.reset(seed=s)
-            log: list[tuple[list[np.ndarray], np.ndarray, int]] = []
-            rewards: list[float] = []
-            done = False
-            steps = 0
-            while not done:
-                acts, p = net.forward(np.asarray(obs, dtype=np.float64))
-                a = int(rng.choice(len(p), p=p))
-                log.append((acts, p, a))
-                obs, r, terminated, truncated, _info = env.step(a)
-                rewards.append(r)
-                steps += 1
-                done = terminated or truncated
+            env = factory()
+            try:
+                obs, _ = env.reset(seed=s)
+                log: list[tuple[list[np.ndarray], np.ndarray, int]] = []
+                rewards: list[float] = []
+                done = False
+                steps = 0
+                while not done:
+                    acts, p = net.forward(np.asarray(obs, dtype=np.float64))
+                    a = int(rng.choice(len(p), p=p))
+                    log.append((acts, p, a))
+                    obs, r, terminated, truncated, _info = env.step(a)
+                    rewards.append(r)
+                    steps += 1
+                    done = terminated or truncated
+            finally:
+                # Close on the exception path too: an RL loop that leaks a
+                # physics client per episode would exhaust the machine.
+                env.close()
             evaluator.interactions += steps
             ep_rewards.append(float(np.sum(rewards)))
             # discounted returns

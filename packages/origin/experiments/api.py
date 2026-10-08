@@ -76,6 +76,13 @@ def _world(store: Store, exp_id: str, trial_id: str, seed: int) -> dict:
         raise FileNotFoundError(f"experiment {exp_id} not found")
     cfg = json.loads(exp["config_json"])
     env_cfg = cfg["env"]
+    if cfg.get("env_kind", "gridworld") != "gridworld":
+        # Graceful degradation, not a 500: the viewer renders grid worlds only
+        # (no embodied/3-D viewer is built yet — see IMPLEMENTATION_STATUS.md).
+        raise ValueError(
+            f"world viewer supports env_kind=gridworld only; experiment {exp_id} "
+            f"is {cfg.get('env_kind')!r}"
+        )
 
     org_path = Path(store.root) / exp_id / f"{trial_id}.organism.json"
     if not org_path.exists():
@@ -226,6 +233,8 @@ def make_handler(store: Store) -> type[BaseHTTPRequestHandler]:
                 return self._send({"error": "unknown endpoint", "path": url.path}, 404)
             except FileNotFoundError as exc:
                 return self._send({"error": str(exc)}, 404)
+            except ValueError as exc:
+                return self._send({"error": str(exc)}, 400)
             except Exception as exc:  # pragma: no cover
                 return self._send({"error": f"{type(exc).__name__}: {exc}"}, 500)
 

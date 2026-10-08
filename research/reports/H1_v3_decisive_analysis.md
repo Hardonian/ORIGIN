@@ -1,4 +1,4 @@
-# H1 — Pre-registered analysis (paired design, study v2)
+# H1 — Pre-registered analysis (paired design, study v3)
 
 Experiment `8f92870eaeb0` · protocol `paired_power_v3_H1ME` · 40 seeds · budget 500,000 interactions/method/seed.
 

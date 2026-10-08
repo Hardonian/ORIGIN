@@ -107,23 +107,43 @@ def test_overview_renders_live_experiment(page):
         assert algo in body, f"method {algo} missing from the comparison table"
 
 
+def _grid_experiment_with_trained_trial() -> tuple[str, dict[str, Any]] | None:
+    """Pick a grid-world experiment with a trained trial.
+
+    The world viewer renders grid worlds only; embodied experiments must degrade
+    gracefully (structured 4xx, asserted in the API smoke test) and are out of
+    scope for this browser test.
+    """
+    for e in _api("/api/experiments"):
+        detail = _api(f"/api/experiments/{e['id']}")
+        cfg = json.loads(detail["experiment"]["config_json"])
+        if cfg.get("env_kind", "gridworld") != "gridworld":
+            continue
+        trained = [
+            t for t in detail["trials"]
+            if t["status"] == "done" and t["algorithm"] not in ("random", "heuristic")
+        ]
+        if trained:
+            return e["id"], trained[0]
+    return None
+
+
 def test_world_viewer_renders_grid_and_trajectory(page):
     """The world viewer must render a real grid with a trained organism's trajectory."""
-    exps = _api("/api/experiments")
-    exp_id = exps[0]["id"]
-    detail = _api(f"/api/experiments/{exp_id}")
-    trained = [
-        t for t in detail["trials"]
-        if t["status"] == "done" and t["algorithm"] not in ("random", "heuristic")
-    ]
-    assert trained, "no trained trial to replay"
+    found = _grid_experiment_with_trained_trial()
+    if found is None:
+        pytest.skip("no gridworld experiment with a trained trial in the store (viewer is grid-only)")
+    exp_id, trial = found
 
     _goto(page, "/world")
     _wait_for_text(page, "World viewer")
+    # The page defaults to the newest experiment, which may be one the grid-only
+    # viewer cannot render; drive the selector to a grid experiment explicitly.
+    page.locator("select").first.select_option(exp_id)
     page.wait_for_selector("div.cell", timeout=WAIT_MS)
     cells = page.locator("div.cell").count()
 
-    world = _api(f"/api/world?experiment={exp_id}&trial={trained[0]['id']}&seed=101")
+    world = _api(f"/api/world?experiment={exp_id}&trial={trial['id']}&seed=101")
     expected = len(world["grid"]) * len(world["grid"][0])
     assert cells == expected, f"rendered {cells} cells, backend grid has {expected}"
 

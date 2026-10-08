@@ -121,3 +121,38 @@ def test_environment_manifest_has_git_and_hardware():
     for key in ("python", "cpu_count", "packages", "git_sha", "platform"):
         assert key in m
     assert m["cpu_count"] >= 1
+
+
+def test_grid_adaptation_never_trains_on_test_seeds(monkeypatch):
+    """Same seed-isolation guard for the grid-world transfer report.
+
+    The adapted score must be a held-out evaluation, not ``fine_tune``'s
+    in-sample best fitness on its own adaptation seeds.
+    """
+    import numpy as np
+
+    from origin.environments.gridworld import GridWorldConfig
+    from origin.experiments import runner as runner_mod
+    from origin.organisms.morphology import Morphology
+    from origin.organisms.organism import Organism
+
+    base = GridWorldConfig.from_dict(TINY["env"])
+    org = Organism.random(Morphology(), base, np.random.default_rng(0))
+    seen: list[list[int]] = []
+    real_fine_tune = runner_mod.fine_tune
+
+    def spy(*args, **kwargs):
+        seen.append(list(kwargs.get("seeds", [])))
+        return real_fine_tune(*args, **kwargs)
+
+    monkeypatch.setattr(runner_mod, "fine_tune", spy)
+    cfg = {"budget": 500, "transfer": {"adapt": True, "budget": 40}}
+    report = runner_mod._transfer_report(org, base, [1, 2], [7, 8], cfg)
+    assert seen, "grid adaptation never ran; the guard would be vacuous"
+    for s in seen:
+        assert set(s) <= {1, 2}, f"adaptation trained on unexpected seeds {s}"
+        assert not set(s) & {7, 8}, f"adaptation trained on test seeds {s}"
+    adapted = [e for e in report.values() if "adapted_mean_reward" in e]
+    assert adapted, "no adapted entry was produced"
+    for e in adapted:
+        assert "adaptation_gain" in e

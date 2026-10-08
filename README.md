@@ -29,14 +29,22 @@ Initial hypothesis (to be *tested*, not assumed):
 | Subsystem | Package | State |
 |---|---|---|
 | Deterministic 2D environment | `origin.environments` | working |
+| Articulated-body physics (**PyBullet**) | `origin.environments.embodied` | engine working; **morphology does not locomote** — see status ledger |
 | Organisms (morphology/controller/lineage) | `origin.organisms` | working |
 | Evolution (fixed-objective GA, novelty search, MAP-Elites) | `origin.evolution` | working |
 | Learning (REINFORCE policy-gradient RL baseline) | `origin.learning` | working |
 | Evaluation (train/test isolation, morphology transfer) | `origin.evaluation` | working |
+| Embodied evaluation + transfer | `origin.evaluation.embodied` | instrumentation verified; **M4 results retracted** (2026-10-08) |
 | Experiment runner + store (SQLite/Parquet/CSV) | `origin.experiments` | working |
 | Telemetry | `origin.telemetry` | working |
 | Visualization (plots) | `origin.visualization` | working |
 | Research lab UI | `apps/lab` | see status ledger |
+
+The same optimizers drive both simulators; `env_kind` selects `gridworld` or
+`embodied`. See `docs/ARCHITECTURE.md`. For the embodied results and their
+retraction (2026-10-08), see
+`research/reports/ORIGIN_M4_Embodied_Transfer_Report.md` and
+`IMPLEMENTATION_STATUS.md`.
 
 ## Quickstart
 

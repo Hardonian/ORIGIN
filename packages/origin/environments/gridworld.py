@@ -110,6 +110,11 @@ class GridWorldConfig:
     def n_actions(self) -> int:
         return 9 if self.move_diagonals else 5
 
+    @property
+    def action_space_n(self) -> int:
+        """Alias of ``n_actions`` so any ORIGIN env presents one action-space name."""
+        return self.n_actions
+
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
@@ -358,6 +363,21 @@ class GridWorld(gym.Env if gym is not None else object):  # type: ignore[misc]
     @property
     def observation_size(self) -> int:
         return 7
+
+    @property
+    def n_actions(self) -> int:
+        return self.config.n_actions
+
+    @property
+    def action_space_n(self) -> int:
+        return self.config.n_actions
+
+    def close(self) -> None:
+        """No-op: GridWorld holds no external resources.
+
+        Present so every ORIGIN environment is uniformly closable — callers that
+        release a simulated body (e.g. a PyBullet client) can treat them alike.
+        """
 
     def _descriptor(self) -> np.ndarray:
         """Behavioural descriptor for novelty search / quality-diversity."""

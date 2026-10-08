@@ -2,7 +2,7 @@
 
 > Persistent status ledger. **Only verified features are marked complete.**
 > A feature is "verified" only if a command was actually run and its result observed.
-> Last updated: 2026-10-07. Current commit: see `git rev-parse HEAD`.
+> Last updated: 2026-10-08. Current commit: see `git rev-parse HEAD`.
 
 ## Milestones
 
@@ -12,11 +12,11 @@
 | 1 | Artificial environment engine | **done** | `origin.environments.GridWorld`; determinism/replay/serialization tests pass |
 | 2 | Evolving organisms | **done** | `origin.organisms` (morphology/genome/lineage); invariant + serialization tests pass |
 | 3 | Learning & evolution baselines | **done** | GA, novelty search, MAP-Elites, REINFORCE all run under a shared interaction budget |
-| 4 | Embodied intelligence / morphology transfer | **partial** | 2D sensor/actuator/body transfer + adaptation implemented and measured. **Not done:** articulated-body physics (PyBullet/MuJoCo) |
+| 4 | Embodied intelligence / morphology transfer | **INVALIDATED — blocked on morphology design** | The instrument was physically broken (links clumped at one point, capsules vertical) and three measurement defects made every number untrustworthy. All M4 results **retracted** — see the correction at the top of `research/reports/ORIGIN_M4_Embodied_Transfer_Report.md`. Corrected instrument: the chain topples at rest and **no gait/axis/torque variant locomotes** (`scripts/probe_embodied_morphology.py`); pilot `589217adbe9e` (15/15 trials) scores a constant −1.000 with 0 successes. Needs a morphology redesign (anisotropic friction / actuation scheme) before any embodied claim |
 | 5 | Experiment orchestration | **done** | `origin.experiments.runner` + `store`; manifests, resume, cancellation, bounded concurrency, CSV/Parquet |
 | 6 | Research lab UI | **done** | 7 screens on **Next 16.4.0**; ESLint 9 flat config; 6 headless-Chromium E2E tests verify live-data rendering |
 | 7 | Local compute distribution | **partial** | CPU-first; `--jobs` concurrency; `scripts/origin_remote_worker.sh` ready. The EPYC tailnode is **offline** (see Blockers) |
-| 8 | First research campaign | **done** | Pilot 30/30 + study 1 (60/60) + study v2 (60/60) + study v3 (160/160) — all 0 failures. **H1 not established, null BOUNDED**: v3 at n=40 (MDE 0.708) found −0.221 [−0.72, +0.26], so any MAP-Elites advantage is < ~0.71; the v2 hint did not replicate |
+| 8 | First research campaign | **partial — grid half stands** | Grid: pilot 30/30 + study 1 (60/60) + v2 (60/60) + v3 (160/160), all 0 failures. **H1 not established, null BOUNDED**: v3 at n=40 (MDE 0.708) found −0.221 [−0.72, +0.26]. Embodied half is **retracted** with milestone 4. Caveat: any *adaptation-gain* number produced before 2026-10-08 (grid included) was measured in-sample and must be re-run before being cited |
 
 ## Verified features
 
@@ -27,36 +27,63 @@
 * **Transfer** — zero-shot + adapted morphology transfer; perturbation robustness measured.
 * **Persistence** — SQLite (metadata) + JSONL (history) + CSV/Parquet (tables) + PNG (plots).
 * **Safety** — data-only JSON genomes (no pickle), loopback-bound services; asserted in `tests/test_security.py`.
+* **Embodied physics** — procedural articulated chains in PyBullet (serial
+  chain, capsules oriented along the link direction); identical
+  config+seed+actions reproduce identical trajectories and rewards exactly, and
+  `get_state`/`set_state` round-trips to an exact reward match (including the
+  banked shaping a fall forfeits). Episodes always disconnect their physics
+  client (no leak across a campaign).
+* **Embodied task semantics** — a fall cancels the shaping banked so far (a
+  fallen episode returns exactly `-fall_penalty`, so "travel far, then fall"
+  cannot outscore upright locomotion) and success requires reaching the target
+  while upright. Asserted in `tests/test_embodied.py`.
+* **Train/test isolation in transfer** — adaptation runs on `train_seeds` only;
+  `transfer_embodied` *refuses* adaptation without disjoint held-out seeds, and
+  the runner's transfer reports (both simulators) are guarded by tests that
+  capture the actual adaptation seeds. Asserted in
+  `tests/test_embodied_eval.py`, `tests/test_runner_embodied.py`,
+  `tests/test_experiments.py`.
+* **Order-independent baseline evaluation** — policies are reseeded per episode
+  (a stateful baseline's result on a seed does not depend on what ran before it),
+  the env owns a copy of its config (a caller's shared config is never mutated),
+  and `set_state` fails closed on joint-count mismatch. Asserted in
+  `tests/test_embodied_eval.py`, `tests/test_embodied.py`.
+* **Simulator-agnostic optimizers** — GA, novelty search, MAP-Elites and
+  REINFORCE run unchanged against either simulator; the only per-simulator
+  differences are an env factory (RL), descriptor axes (QD) and baseline set.
+  Asserted in `tests/test_runner_embodied.py`.
 
-## Latest successful tests
+## Latest successful tests (all re-run 2026-10-08)
 
 ```
-$ .venv/bin/python -m pytest tests -q
-74 passed, 6 skipped        # skipped = browser E2E (opt-in)
-
+$ .venv/bin/python -m pytest tests
+124 passed, 6 skipped        # 130 collected; skipped = browser E2E (opt-in)
 $ .venv/bin/ruff check packages tests scripts benchmarks
 All checks passed!
-
 $ .venv/bin/mypy
-Success: no issues found in 27 source files
-
+Success: no issues found in 29 source files
 $ cd apps/lab && npm run lint && npm run typecheck && npm run build
-✔ No ESLint warnings or errors; typecheck clean; production build OK (10 routes)
-
-$ node apps/lab/scripts/smoke-api.mjs   # UI↔API contract
-13/13 checks passed
-
+✔ No ESLint warnings or errors; typecheck clean; production build OK
+$ node apps/lab/scripts/smoke-api.mjs   # UI↔API contract (API on :8788)
+16/16 checks passed          # grid world payload + embodied graceful-400 contracts
 $ scripts/e2e_lab.sh                    # real headless browser against live API
-6 passed
-
-$ .venv/bin/origin-run --config configs/pilot_paired_v3.json --store runs --jobs 8
-160 trials run, 0 failed
-
+6 passed; all 7 routes HTTP 200
+$ .venv/bin/origin-run --config configs/embodied_transfer.json --store runs --jobs 6
+15 trials run, 0 failed      # experiment 589217adbe9e — corrected task; result is
+                             # a constant -1.000 with 0 successes (task unsolvable)
+$ .venv/bin/python scripts/probe_embodied_morphology.py
+rest: topples at steps 137-162 for 5/10/20 links (zero input)
+primitives x torque: max net displacement 0.194 m (tumbling episodes)
+joint axis x torque x gait: x <= 0.002 m in every variant
+$ .venv/bin/python scripts/analyze_embodied.py --store runs --experiment 589217adbe9e
+all methods: mean -1.000, fall 1.00, success 0.00   # morphology does not locomote
 $ .venv/bin/python scripts/analyze.py --store runs --experiment 8f92870eaeb0 --design paired \
-    --bootstrap-seed 20261010 --protocol-doc research/protocols/paired_v3_power.md
+    --bootstrap-seed 20261010 --protocol-doc research/protocols/paired_v3_power.md \
+    --out research/reports/H1_v3_decisive_analysis.md     # NOTE: --out, or it clobbers
 map_elites - fixed_objective_ga: -0.221, 95% paired CI [-0.721, +0.262], p=0.538 -> inconclusive
   minimum detectable paired effect = 0.708 (observed |mean diff| = 0.221)   # bounded null
-
+$ .venv/bin/bandit -q -r packages/origin  # CI gates medium+
+0 medium/high; 8 low (B101 assert_used — invariant assertions in research code)
 $ scripts/origin_remote_worker.sh --check
 ERROR: epyc is not reachable over SSH.   (expected: node offline — see Blockers)
 ```
@@ -69,28 +96,91 @@ ERROR: epyc is not reachable over SSH.   (expected: node offline — see Blocker
 * Movement is **not** penalised relative to standing still (avoids a degenerate
   "do nothing" optimum); hazards are held out of training and used only as a
   robustness perturbation in the pilot.
-* One interaction currency (`env.step` calls) for all methods.
+* One interaction currency (`env.step` calls) for all methods, on both simulators.
+* **Simulators are pluggable.** `env_kind` selects `gridworld` or `embodied`. The
+  optimizers depend only on an evaluator contract (`exhausted` / `interactions` /
+  `budget` / `train_seeds` / `evaluate_organism`), so the same GA, novelty search,
+  MAP-Elites and REINFORCE code drives a grid agent or a physics body. Per-simulator
+  differences are isolated to three places: an **env factory** for RL, explicit
+  **descriptor axes/bounds** for QD (no simulator-silent assumptions), and the
+  **baseline set** (`random`/`heuristic` vs `random`/`scripted_gait`).
+* **Body changes ≠ environment changes.** Morphology transfer varies the *body*
+  (links, mass, torque, friction); perturbation transfer varies the *world* (gravity,
+  target distance, friction, episode length). They are reported separately because
+  they measure different things.
+* **The control interface is fixed at 7 observations / 5 actions in both
+  simulators.** For the articulated bodies this means the morphology changes the
+  dynamics the controller must cope with, never the size of its interface — which is
+  what makes "transfer this controller to that body" a well-posed experiment.
+* **The embodied task is "reach the target while upright".** Success requires
+  arriving upright; a fall cancels the shaping banked so far (a fallen episode
+  returns exactly `-fall_penalty`, potential-based shaping with zero potential at
+  the failure state), so "travel far, then crash" cannot outscore upright
+  locomotion. Partial competence stays visible in the metrics (distance
+  travelled, upright fraction, fall rate), not in the return of a failed episode.
 * No `pickle`, no arbitrary code execution, loopback-only services.
+
 
 ## Known defects / limitations
 
+* **The embodied morphology does not locomote — the milestone-4 blocker.** The
+  corrected chain topples at rest (steps 137–162 with zero input) and no motor
+  program, joint axis (pitch or yaw) or torque in 0.2–1.4 N·m produces net
+  displacement (≤ 0.02 m per 6 s episode). Verified by
+  `scripts/probe_embodied_morphology.py`. Fixing this is a morphology/gait
+  design pass (anisotropic friction and/or a different actuation scheme), not a
+  parameter tweak — the design choice is pending (see Blockers).
+* **All M4 embodied results are retracted** (2026-10-08): the body was not the
+  body the report described, the fall metric was wrap-broken, and adaptation
+  gains were measured in-sample. See the correction at the top of
+  `research/reports/ORIGIN_M4_Embodied_Transfer_Report.md`. The pre-registered
+  H2 is **untested** until re-run on a working morphology.
+* **Adaptation-gain numbers produced before 2026-10-08 are in-sample** (the
+  transfer paths fine-tuned on `test_seeds[:2]` and scored on the same seeds).
+  The code is fixed and guarded by tests; any old "adaptation gain" quoted
+  anywhere must be re-measured before use.
+* **`interactions` semantics changed 2026-10-08.** It now means *training*
+  interactions (0 for baselines), with `evaluation_interactions` reported
+  separately — previously baselines reported evaluation steps while learners
+  reported training steps, so "compute cost per method" mixed currencies. Rows
+  stored before this change need a re-run before their compute cost is cited.
+* **`scripts/analyze.py` writes a fixed default report path**
+  (`research/reports/H1_powered_analysis.md`) — running it without `--out`
+  clobbers that file. Always pass `--out` (documented in the reproduction
+  commands below).
 * **Frontend dependency advisories.** The 4 Next.js runtime advisories are
   **resolved** by the `next@16.4.0` upgrade (with ESLint 9 flat config replacing
-  the removed `next lint`). One **dev-only** advisory remains unfixable at present:
-  `braces` (via the Next lint plugin), where `braces@3.0.3` is the newest release
-  and the advisory covers all versions. Documented in `SECURITY.md`; not shipped in
-  the app bundle.
+  the removed `next lint`). One **dev-only** advisory remains unfixable at
+  present: `braces` (via the Next lint plugin), where `braces@3.0.3` is the
+  newest release and the advisory covers all versions. Documented in
+  `SECURITY.md`; not shipped in the app bundle.
 * **REINFORCE is weak** at the pilot budget and previously collapsed to a
   single action; an entropy bonus was added, which raised it above the collapse
-  but it still trails the random control. Reported honestly; it bounds RL claims.
-* The **scripted heuristic** is privileged (global BFS) and is a reference, not a
-  like-for-like competitor.
-* **Interactive browser smoke test** — now covered: `scripts/e2e_lab.sh` runs 6
-  Playwright/Chromium tests against the live API + production UI, and CI runs them.
-* Pilots use ≤5 seeds; results are **preliminary**.
+  but it still trails the random control on the grid task. Reported honestly; it
+  bounds RL claims.
+* **The scripted heuristic is privileged** (global BFS) and is a reference, not a
+  like-for-like competitor. The embodied `scripted_gait` is open-loop and cannot
+  adapt at all by construction.
+* **The world viewer is grid-only.** `/api/world` now *degrades gracefully*
+  (structured 400 naming the reason) for embodied experiments instead of
+  crashing with a 500; a 3-D morphology viewer is not built. Covered by the API
+  smoke test and the browser E2E suite.
+* Grid pilots use ≤5 seeds per study tier (v3 uses 40 paired seeds). Embodied
+  sample sizes are moot until the morphology works.
 
 ## Blockers
 
+* **Embodied morphology design decision (needs the owner).** The instrument
+  cannot measure its task. Options, in ascending cost:
+  1. **Anisotropic friction** on the existing chain (PyBullet
+     `anisotropicFriction`) + lateral-undulation joints — the standard snake
+     robot arrangement, small code change, needs a calibration campaign.
+  2. **Different actuation scheme** (e.g. per-joint PD with gait phases, or
+     wheel/leg primitives) — medium effort.
+  3. **Proven third-party morphologies** (e.g. PyBullet's `minitaur` URDF) as
+     the body set — reuses known-working assets but rewrites the
+     procedural-morphology story and the fixed-interface mapping.
+  Until one is chosen, no embodied experiment should spend seeds.
 * **EPYC compute node is offline.** Diagnosed precisely: the node is on the
   Tailscale tailnet as `epyc` = `100.127.74.34`
   (`epyc.taile5788a.ts.net`), but `tailscale status` reports
@@ -104,13 +194,21 @@ ERROR: epyc is not reachable over SSH.   (expected: node offline — see Blocker
 
 ## Remaining work
 
-1. Articulated-physics embodiment (Milestone 4) with a real physics engine.
-2. A multi-niche task: H1 is closed for the current single-niche world as a bounded
-   null (< ~0.71). Test whether a task where quality-diversity has somewhere to put
-   its diversity shows an effect — pre-register the environment and analysis
-   together and power-size it, as study v3 was.
-3. Watch for an upstream fix to the dev-only `braces` advisory (Next lint plugin).
-4. Optional GPU-accelerated population evaluation on the compute node.
+1. **Embodied morphology redesign** (blocked on the design decision above).
+   Acceptance: `scripts/probe_embodied_morphology.py` shows a policy that both
+   stays upright for a full episode *and* travels ≥ target distance; then re-run
+   the pre-registered H2 campaign unchanged and analyze it.
+2. **Milestone 7 (compute distribution)**: `--jobs` is real and tested, and the
+   remote worker script is ready, but the EPYC node is offline, so no multi-host
+   run has actually happened. The productive move is a real worker model
+   (heartbeats, stale-worker recovery, idempotent merge by deterministic trial
+   id) verified by running a campaign across several real worker processes
+   locally, with the remote path as the same mechanism over SSH.
+3. **Milestone 6 (UI)**: 7 screens E2E-tested; the 3-D morphology viewer is not
+   built (grid viewer only, now with graceful degradation).
+4. A multi-niche grid task: H1 is closed for the current single-niche world as a
+   bounded null (< ~0.71).
+5. Watch for an upstream fix to the dev-only `braces` advisory (Next lint plugin).
 
 ## Reproduction commands
 
@@ -121,12 +219,22 @@ uv venv --python 3.12 .venv && uv pip install -e '.[dev]' --python .venv/bin/pyt
 .venv/bin/origin-api  --store runs --host 127.0.0.1 --port 8788 &
 (cd apps/lab && npm install && npm run build && npm run start)
 .venv/bin/python scripts/make_report.py --store runs
+.venv/bin/python scripts/probe_embodied_morphology.py     # morphology capability check
+.venv/bin/python scripts/analyze.py --store runs --experiment 8f92870eaeb0 --design paired \
+  --bootstrap-seed 20261010 --protocol-doc research/protocols/paired_v3_power.md \
+  --out research/reports/H1_v3_decisive_analysis.md       # always pass --out
 ```
 
 ## Next executable action
 
-H1 is closed for this task as a bounded null (< ~0.71). The remaining scientific
-question is a different one: whether a task with **genuine multi-niche structure**
-(where quality-diversity has somewhere to put its diversity) shows an advantage that
-this single-niche foraging world cannot. Pre-register the environment and the
-analysis together *before* running it, and size it from a power analysis as study v3 was.
+**Owner decision required: pick the embodied morphology direction** (see
+Blockers). It gates milestone 4, the pre-registered H2, and any seed spending on
+the embodied task.
+
+**While that decision is pending, the highest-ROI executable work is Milestone 7
+(local compute distribution)** — the last milestone with an unverified core
+claim. Make distribution real *without* the remote node: a proper worker model
+(heartbeats, stale-worker recovery, idempotent merge by deterministic trial id)
+verified by running a campaign across several real worker processes locally,
+with the remote path as the same mechanism over SSH. That converts "ready but
+unverified" into "verified, and the remote node is just another host".

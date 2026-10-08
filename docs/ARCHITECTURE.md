@@ -95,6 +95,37 @@ New algorithms implement a `(evaluator, base_env, seed, **kwargs) ->
 OptimizationResult` signature and register in `ALGORITHMS`. New environments
 expose the Gymnasium API and a `_descriptor()` for novelty/QD.
 
+## Embodied simulation (Milestone 4)
+
+Two simulators share one optimizer stack, selected by `env_kind` in the config:
+
+| | `gridworld` | `embodied` |
+|---|---|---|
+| Environment | deterministic seeded grid | articulated bodies in **PyBullet** |
+| Observation | 7-D egocentric | 7-D body state |
+| Actions | 5 (or 9 diagonal) | 5 motor primitives |
+| Descriptor | 5-D behaviour | `[travelled, upright_frac, energy, rate, time_frac]` |
+| Baselines | `random`, `heuristic` | `random`, `scripted_gait` |
+
+The optimizers depend only on an **evaluator contract** — `exhausted`,
+`interactions`, `budget`, `train_seeds`, `evaluate_organism(org) -> (fitness,
+descriptor, episodes)` — so the same GA / novelty search / MAP-Elites / REINFORCE
+code drives either simulator. Only three things are simulator-specific, and each is
+explicit rather than assumed:
+
+1. **RL env factory** — `reinforce(..., env_factory=...)` builds the episodes' envs,
+   so the RL loop is not hard-wired to `GridWorld`.
+2. **QD descriptor axes** — `map_elites(..., desc_dims, bounds)` receives the
+   archive axes and ranges; the grid defaults are preserved, but no simulator's
+   descriptor semantics are assumed by the archive.
+3. **Baseline set** — `BASELINES[kind]`, validated at config load.
+
+Bodies are built procedurally (`createMultiBody` over a chain of capsule links with
+revolute joints about +y), simulated at 8 physics substeps per control step in
+`DIRECT` mode. Determinism is exact for a fixed config/seed/action sequence, and
+`get_state`/`set_state` round-trips base pose **and velocity** plus joint states —
+omitting base velocity was a real bug that made replays diverge immediately.
+
 ## Non-goals
 
 No microservices, no cloud database, no orchestration framework. ORIGIN stays a

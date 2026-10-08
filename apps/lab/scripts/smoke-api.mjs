@@ -36,18 +36,36 @@ if (expId) {
   const arts = await get(`/api/artifacts?experiment=${expId}`);
   ok("artifacts array", Array.isArray(arts));
 
-  const fails = await get("/api/failures");
+  const fails = await get(`/api/failures`);
   ok("failures array", Array.isArray(fails));
+}
 
-  // world viewer needs a trained (non-baseline) done trial
+// World-viewer contract, covered once per experiment kind present in the store:
+// a grid trial must return a real world payload; an embodied trial (no viewer is
+// built yet) must degrade with a structured 4xx naming the reason — never a 500.
+let gridWorldChecked = false;
+let embodiedWorldChecked = false;
+for (const e of exps) {
+  if (gridWorldChecked && embodiedWorldChecked) break;
+  const detail = await get(`/api/experiments/${e.id}`);
+  const kind = JSON.parse(detail.experiment.config_json).env_kind || "gridworld";
   const trial = detail.trials.find(
     (t) => t.status === "done" && !["random", "heuristic"].includes(t.algorithm)
   );
-  if (trial) {
-    const w = await get(`/api/world?experiment=${expId}&trial=${trial.id}&seed=101`);
+  if (!trial) continue;
+  const r = await fetch(`${BASE}/api/world?experiment=${e.id}&trial=${trial.id}&seed=101`);
+  if (kind === "gridworld" && !gridWorldChecked) {
+    ok("world responds 200 for a grid trial", r.ok);
+    const w = await r.json();
     ok("world.grid rectangular", Array.isArray(w.grid) && Array.isArray(w.grid[0]));
     ok("world.trajectory non-empty", Array.isArray(w.trajectory) && w.trajectory.length > 0);
     ok("world.morphology present", typeof w.morphology === "object");
+    gridWorldChecked = true;
+  } else if (kind !== "gridworld" && !embodiedWorldChecked) {
+    ok(`world degrades gracefully for ${kind} trials`, r.status === 400);
+    const body = await r.json();
+    ok("world degradation names the reason", typeof body.error === "string" && body.error.includes("gridworld"));
+    embodiedWorldChecked = true;
   }
 }
 
