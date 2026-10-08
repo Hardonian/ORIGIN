@@ -119,9 +119,11 @@ def _list_protocols() -> list[dict]:
     for p in sorted(cfg_dir.glob("*.json")):
         try:
             cfg = json.loads(p.read_text())
-            out.append({"file": p.name, "name": cfg.get("name"), "protocol": cfg.get("protocol"), "budget": cfg.get("budget"), "description": cfg.get("description", ""), "config": cfg})
-        except Exception:
+        except Exception as exc:
+            # Surface unreadable protocol files instead of silently dropping them.
+            out.append({"file": p.name, "error": f"unreadable config: {exc}"})
             continue
+        out.append({"file": p.name, "name": cfg.get("name"), "protocol": cfg.get("protocol"), "budget": cfg.get("budget"), "description": cfg.get("description", ""), "config": cfg})
     return out
 
 
