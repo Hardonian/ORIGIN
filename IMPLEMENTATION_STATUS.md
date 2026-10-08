@@ -186,10 +186,12 @@ ERROR: epyc is not reachable over SSH.   (expected: node offline — see Blocker
 * **The scripted heuristic is privileged** (global BFS) and is a reference, not a
   like-for-like competitor. The embodied `scripted_gait` is open-loop and cannot
   adapt at all by construction.
-* **The world viewer is grid-only.** `/api/world` now *degrades gracefully*
+* **Physical replay remains grid-only.** `/api/world` now *degrades gracefully*
   (structured 400 naming the reason) for embodied experiments instead of
-  crashing with a 500; a 3-D morphology viewer is not built. Covered by the API
-  smoke test and the browser E2E suite.
+  crashing with a 500. The lab now also exposes a static persisted body-plan
+  schematic at `/api/morphology`; it is explicitly labelled as not being a
+  physics replay and shows the calibration gate. A 3-D animated morphology
+  replay is not built. Covered by the API smoke test and browser E2E suite.
 * Grid pilots use ≤5 seeds per study tier (v3 uses 40 paired seeds). Embodied
   sample sizes are moot until the morphology works.
 
@@ -227,8 +229,10 @@ ERROR: epyc is not reachable over SSH.   (expected: node offline — see Blocker
    (`tests/test_worker_model.py`, `scripts/probe_worker_recovery.py`). What
    remains is exactly one real multi-host campaign once the EPYC node is back
    (Blockers) — the remote path is the same mechanism over SSH.
-3. **Milestone 6 (UI)**: 7 screens E2E-tested; the 3-D morphology viewer is not
-   built (grid viewer only, now with graceful degradation).
+3. **Milestone 6 (UI)**: 7 screens E2E-tested; grid trajectories replay in the
+   world viewer and embodied experiments have a static, persisted body-plan
+   inspector. A 3-D animated morphology replay awaits physics calibration and
+   trajectory persistence.
 4. A multi-niche grid task: H1 is closed for the current single-niche world as a
    bounded null (< ~0.71).
 5. Watch for an upstream fix to the dev-only `braces` advisory (Next lint plugin).

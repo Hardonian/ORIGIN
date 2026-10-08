@@ -13,6 +13,8 @@ from pathlib import Path
 
 import pytest
 
+pytest.importorskip("pybullet", reason="install the embodied extra to run PyBullet tests")
+
 from origin.experiments.runner import (
     build_base_env,
     run_experiment,

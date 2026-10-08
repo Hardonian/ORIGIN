@@ -108,12 +108,7 @@ def test_overview_renders_live_experiment(page):
 
 
 def _grid_experiment_with_trained_trial() -> tuple[str, dict[str, Any]] | None:
-    """Pick a grid-world experiment with a trained trial.
-
-    The world viewer renders grid worlds only; embodied experiments must degrade
-    gracefully (structured 4xx, asserted in the API smoke test) and are out of
-    scope for this browser test.
-    """
+    """Pick a grid-world experiment with a trained trial."""
     for e in _api("/api/experiments"):
         detail = _api(f"/api/experiments/{e['id']}")
         cfg = json.loads(detail["experiment"]["config_json"])
@@ -125,6 +120,19 @@ def _grid_experiment_with_trained_trial() -> tuple[str, dict[str, Any]] | None:
         ]
         if trained:
             return e["id"], trained[0]
+    return None
+
+
+def _embodied_experiment_with_trial() -> tuple[str, dict[str, Any]] | None:
+    """Pick any finished embodied trial; a static body plan needs no checkpoint."""
+    for e in _api("/api/experiments"):
+        detail = _api(f"/api/experiments/{e['id']}")
+        cfg = json.loads(detail["experiment"]["config_json"])
+        if cfg.get("env_kind", "gridworld") != "embodied":
+            continue
+        trial = next((t for t in detail["trials"] if t["status"] == "done"), None)
+        if trial:
+            return e["id"], trial
     return None
 
 
@@ -153,6 +161,23 @@ def test_world_viewer_renders_grid_and_trajectory(page):
 
     page.locator("button:has-text('▶')").first.click()
     _wait_for_text(page, "step 1")
+
+
+def test_world_viewer_inspects_embodied_body_plan(page):
+    """Embodied studies expose their declared body, never a fake motion replay."""
+    found = _embodied_experiment_with_trial()
+    if found is None:
+        pytest.skip("no completed embodied experiment in the store")
+    exp_id, trial = found
+
+    plan = _api(f"/api/morphology?experiment={exp_id}&trial={trial['id']}")
+    _goto(page, "/world")
+    page.locator("select").first.select_option(exp_id)
+    body = _wait_for_text(page, "schematic, not a physics replay")
+
+    assert "Calibration gate" in body
+    assert "low longitudinal grip" in body
+    assert plan["body"]["joint_axis"] in body
 
 
 def test_benchmark_renders_transfer_matrix(page):

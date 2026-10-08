@@ -54,6 +54,14 @@ uv pip install -e ".[dev]" --python .venv/bin/python
 .venv/bin/python -m pytest -q
 ```
 
+The articulated-body simulator is optional so core development works where
+PyBullet is unavailable. Install its extra before running the embodied suite or
+calibration probe:
+
+```bash
+uv pip install -e ".[dev,embodied]" --python .venv/bin/python
+```
+
 Run a bounded experiment:
 
 ```bash

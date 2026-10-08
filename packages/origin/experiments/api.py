@@ -8,12 +8,17 @@ database or extra services. Binds to loopback only by default.
 from __future__ import annotations
 
 import argparse
+import hmac
 import json
+import os
+import platform
+import secrets
 import statistics as st
 import subprocess
 import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 from origin.experiments.store import Store
@@ -77,8 +82,8 @@ def _world(store: Store, exp_id: str, trial_id: str, seed: int) -> dict:
     cfg = json.loads(exp["config_json"])
     env_cfg = cfg["env"]
     if cfg.get("env_kind", "gridworld") != "gridworld":
-        # Graceful degradation, not a 500: the viewer renders grid worlds only
-        # (no embodied/3-D viewer is built yet — see IMPLEMENTATION_STATUS.md).
+        # Keep physical replay separate from the persisted body-plan schematic:
+        # /api/morphology is intentionally not a simulated trajectory.
         raise ValueError(
             f"world viewer supports env_kind=gridworld only; experiment {exp_id} "
             f"is {cfg.get('env_kind')!r}"
@@ -118,6 +123,81 @@ def _world(store: Store, exp_id: str, trial_id: str, seed: int) -> dict:
     }
 
 
+def _morphology_plan(store: Store, exp_id: str, trial_id: str) -> dict:
+    """Return a persisted embodied body plan without fabricating a physics replay.
+
+    A schematic is useful before the calibration host is available: it lets the
+    lab expose the exact joints, contact model and actuator limits that an
+    experiment declared.  It intentionally contains no positions sampled from
+    the simulator, so a viewer cannot be mistaken for evidence of locomotion.
+    """
+    from origin.environments.embodied import EmbodiedConfig
+
+    exp = store.experiment(exp_id)
+    if not exp:
+        raise FileNotFoundError(f"experiment {exp_id} not found")
+    if not any(t["id"] == trial_id for t in store.trials(exp_id)):
+        raise FileNotFoundError(f"trial {trial_id} not found in experiment {exp_id}")
+    cfg = json.loads(exp["config_json"])
+    if cfg.get("env_kind", "gridworld") != "embodied":
+        raise ValueError(
+            f"morphology viewer supports env_kind=embodied only; experiment {exp_id} "
+            f"is {cfg.get('env_kind', 'gridworld')!r}"
+        )
+    body = EmbodiedConfig.from_dict(cfg["env"])
+    segment_count = body.n_links + 1  # base capsule plus one capsule per revolute link
+    start = -0.5 * (segment_count - 1) * body.link_length
+    segments = [
+        {
+            "index": i,
+            "center_x": round(start + i * body.link_length, 6),
+            "length": body.link_length,
+            "radius": body.link_radius,
+        }
+        for i in range(segment_count)
+    ]
+    joints = [
+        {"index": i, "x": round(start + (i + 0.5) * body.link_length, 6), "axis": body.joint_axis}
+        for i in range(body.n_links)
+    ]
+
+    organism_morphology = None
+    org_path = Path(store.root) / exp_id / f"{trial_id}.organism.json"
+    if org_path.exists():
+        try:
+            organism_morphology = json.loads(org_path.read_text()).get("morphology")
+        except (OSError, json.JSONDecodeError):
+            # A malformed optional checkpoint must not alter the persisted body
+            # specification. The regular replay endpoint will surface it instead.
+            organism_morphology = None
+
+    return {
+        "viewer_kind": "morphology_plan",
+        "experiment_id": exp_id,
+        "trial_id": trial_id,
+        "physics_replay": False,
+        "body": {
+            "morphology": body.morphology,
+            "segments": segments,
+            "joints": joints,
+            "joint_axis": body.joint_axis,
+            "joint_limit": body.joint_limit,
+            "joint_max_torque": body.joint_max_torque,
+            "gait_amplitude": body.gait_amplitude,
+            "motor_position_gain": body.motor_position_gain,
+            "motor_velocity_gain": body.motor_velocity_gain,
+            "lateral_friction": body.lateral_friction,
+            "longitudinal_friction": body.longitudinal_friction,
+        },
+        "organism_morphology": organism_morphology,
+        "calibration": {
+            "status": "required",
+            "acceptance": "A production gait must remain upright and gain at least 0.050 m in 3 s.",
+            "command": "python scripts/probe_embodied_morphology.py",
+        },
+    }
+
+
 def _list_protocols() -> list[dict]:
     out = []
     cfg_dir = Path(__file__).resolve().parents[3] / "configs"
@@ -151,23 +231,51 @@ def _launch(store: Store, cfg: dict) -> dict:
     return {"launched": True, "config": str(tmp), "log": str(log)}
 
 
-def make_handler(store: Store) -> type[BaseHTTPRequestHandler]:
+def make_handler(
+    store: Store,
+    api_key: str | None = None,
+    auth_required: bool = False,
+) -> type[BaseHTTPRequestHandler]:
     class Handler(BaseHTTPRequestHandler):
         server_version = "OriginLab/1.0"
 
-        def _send(self, payload, code: int = 200) -> None:
+        def _send(self, payload: Any, code: int = 200) -> None:
             body = json.dumps(payload, default=str).encode()
             self.send_response(code)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
             self.end_headers()
             self.wfile.write(body)
 
-        def log_message(self, *a):  # quieter
+        def log_message(self, *a: Any) -> None:  # quieter
             pass
 
-        def _serve_artifact(self, q) -> None:
+        def do_OPTIONS(self) -> None:
+            self.send_response(204)
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
+            self.end_headers()
+
+        def _check_auth(self) -> bool:
+            if not api_key:
+                return True
+            auth_header = self.headers.get("Authorization", "")
+            token = ""
+            if auth_header.startswith("Bearer "):
+                token = auth_header[7:].strip()
+            elif "X-API-Key" in self.headers:
+                token = self.headers.get("X-API-Key", "").strip()
+            else:
+                url = urlparse(self.path)
+                q = parse_qs(url.query)
+                token = q.get("token", [""])[0]
+            return bool(token and hmac.compare_digest(token, api_key))
+
+        def _serve_artifact(self, q: dict[str, list[str]]) -> None:
             """Serve a registered artifact file, confined to the store root."""
             try:
                 aid = int(q.get("id", ["-1"])[0])
@@ -188,15 +296,44 @@ def make_handler(store: Store) -> type[BaseHTTPRequestHandler]:
             self.send_response(200)
             self.send_header("Content-Type", ctype)
             self.send_header("Content-Length", str(len(data)))
+            self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
             self.wfile.write(data)
 
         def do_GET(self) -> None:
             url = urlparse(self.path)
             q = parse_qs(url.query)
+
+            # Health and capabilities are open so callers can detect requirements
+            if url.path == "/api/health":
+                return self._send({
+                    "status": "ok",
+                    "store": str(store.root),
+                    "version": "0.1.0",
+                    "auth_required": bool(api_key and auth_required),
+                })
+
+            if url.path == "/api/capabilities":
+                from origin.environments.embodied import p as pybullet_engine
+                has_pybullet = pybullet_engine is not None
+                return self._send({
+                    "version": "0.1.0",
+                    "status": "ready",
+                    "auth_enabled": bool(api_key),
+                    "auth_required": bool(api_key and auth_required),
+                    "simulators": ["gridworld"] + (["embodied"] if has_pybullet else []),
+                    "embodied_available": has_pybullet,
+                    "platform": platform.platform(),
+                    "python": sys.version.split()[0],
+                    "cpus": os.cpu_count() or 1,
+                    "store": str(Path(store.root).resolve()),
+                })
+
+            # Check authentication if required for reads
+            if auth_required and not self._check_auth():
+                return self._send({"error": "unauthorized", "message": "Valid API token required"}, 401)
+
             try:
-                if url.path == "/api/health":
-                    return self._send({"status": "ok", "store": str(store.root), "version": "0.1.0"})
                 if url.path == "/api/artifact-file":
                     return self._serve_artifact(q)
                 if url.path == "/api/experiments":
@@ -211,7 +348,12 @@ def make_handler(store: Store) -> type[BaseHTTPRequestHandler]:
                     exp = store.experiment(exp_id)
                     if not exp:
                         return self._send({"error": "not found"}, 404)
-                    return self._send({"experiment": exp, "trials": store.trials(exp_id), "summary": store.summary(exp_id), "artifacts": store.artifacts(exp_id)})
+                    return self._send({
+                        "experiment": exp,
+                        "trials": store.trials(exp_id),
+                        "summary": store.summary(exp_id),
+                        "artifacts": store.artifacts(exp_id),
+                    })
                 if url.path == "/api/trials":
                     return self._send(store.trials(q.get("experiment", [None])[0]))
                 if url.path == "/api/compare":
@@ -223,6 +365,16 @@ def make_handler(store: Store) -> type[BaseHTTPRequestHandler]:
                     return self._send(store.artifacts(q.get("experiment", [None])[0]))
                 if url.path == "/api/failures":
                     return self._send([t for t in store.trials() if t["status"] == "failed"])
+                if url.path == "/api/workers":
+                    from origin.experiments.worker import status_report
+                    return self._send(status_report(store.root))
+                if url.path == "/api/system":
+                    return self._send({
+                        "platform": platform.platform(),
+                        "cpus": os.cpu_count() or 1,
+                        "store": str(Path(store.root).resolve()),
+                        "trial_counts": store.trial_counts(),
+                    })
                 if url.path == "/api/world":
                     exp_id = q.get("experiment", [None])[0] or ""
                     trial_id = q.get("trial", [None])[0] or ""
@@ -230,6 +382,12 @@ def make_handler(store: Store) -> type[BaseHTTPRequestHandler]:
                     if not exp_id or not trial_id:
                         return self._send({"error": "experiment and trial required"}, 400)
                     return self._send(_world(store, exp_id, trial_id, seed))
+                if url.path == "/api/morphology":
+                    exp_id = q.get("experiment", [None])[0] or ""
+                    trial_id = q.get("trial", [None])[0] or ""
+                    if not exp_id or not trial_id:
+                        return self._send({"error": "experiment and trial required"}, 400)
+                    return self._send(_morphology_plan(store, exp_id, trial_id))
                 return self._send({"error": "unknown endpoint", "path": url.path}, 404)
             except FileNotFoundError as exc:
                 return self._send({"error": str(exc)}, 404)
@@ -240,14 +398,32 @@ def make_handler(store: Store) -> type[BaseHTTPRequestHandler]:
 
         def do_POST(self) -> None:
             url = urlparse(self.path)
-            if url.path != "/api/experiments":
-                return self._send({"error": "unknown endpoint"}, 404)
+
+            # Mutations always require auth when api_key is configured
+            if api_key and not self._check_auth():
+                return self._send({"error": "unauthorized", "message": "Valid API token required for state changes"}, 401)
+
             try:
                 length = int(self.headers.get("Content-Length", "0"))
-                if length <= 0 or length > 1_000_000:
+                if length > 1_000_000:
                     return self._send({"error": "invalid body size"}, 400)
-                cfg = json.loads(self.rfile.read(length))
-                return self._send(_launch(store, cfg))
+                body_bytes = self.rfile.read(length) if length > 0 else b"{}"
+
+                if url.path == "/api/experiments":
+                    cfg = json.loads(body_bytes)
+                    return self._send(_launch(store, cfg))
+
+                if url.path == "/api/workers/reap":
+                    data = json.loads(body_bytes) if body_bytes else {}
+                    stale_after = float(data.get("stale_after", 120.0))
+                    recovery = store.reap_stale_workers(stale_after=stale_after)
+                    return self._send({
+                        "reaped": True,
+                        "dead_workers": recovery["dead_workers"],
+                        "recovered_trials": recovery["trials_reclaimed"],
+                    })
+
+                return self._send({"error": "unknown endpoint"}, 404)
             except ValueError as exc:
                 return self._send({"error": str(exc)}, 400)
             except Exception as exc:  # pragma: no cover
@@ -261,10 +437,21 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--store", default="runs")
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8788)
+    ap.add_argument("--api-key", default=os.getenv("ORIGIN_API_KEY"), help="API key for authentication (or set ORIGIN_API_KEY)")
+    ap.add_argument("--require-auth", action="store_true", help="require authentication for read endpoints as well as mutations")
+    ap.add_argument("--insecure-no-auth", action="store_true", help="allow unauthenticated non-loopback binding")
     args = ap.parse_args(argv)
+
+    key = args.api_key
+    # Security posture: if binding beyond loopback without an explicit key or override, generate a token
+    if args.host not in ("127.0.0.1", "localhost", "::1") and not key and not args.insecure_no_auth:
+        key = secrets.token_hex(16)
+        print(f"SECURITY: Binding to non-loopback {args.host}. Generated API Key: {key}")
+
     store = Store(args.store)
-    server = ThreadingHTTPServer((args.host, args.port), make_handler(store))
-    print(f"ORIGIN lab API on http://{args.host}:{args.port} (store={Path(args.store).resolve()})")
+    server = ThreadingHTTPServer((args.host, args.port), make_handler(store, api_key=key, auth_required=args.require_auth))
+    auth_status = f"authenticated ({'all' if args.require_auth else 'write-only'})" if key else "unauthenticated"
+    print(f"ORIGIN lab API on http://{args.host}:{args.port} [{auth_status}] (store={Path(args.store).resolve()})")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

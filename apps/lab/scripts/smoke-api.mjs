@@ -40,9 +40,10 @@ if (expId) {
   ok("failures array", Array.isArray(fails));
 }
 
-// World-viewer contract, covered once per experiment kind present in the store:
-// a grid trial must return a real world payload; an embodied trial (no viewer is
-// built yet) must degrade with a structured 4xx naming the reason — never a 500.
+// Viewer contracts, covered once per experiment kind present in the store:
+// a grid trial must return a real replay payload; an embodied trial must retain
+// the structured /api/world 4xx (it is not a grid), while /api/morphology
+// exposes the persisted body plan without fabricating a physics replay.
 let gridWorldChecked = false;
 let embodiedWorldChecked = false;
 for (const e of exps) {
@@ -65,6 +66,11 @@ for (const e of exps) {
     ok(`world degrades gracefully for ${kind} trials`, r.status === 400);
     const body = await r.json();
     ok("world degradation names the reason", typeof body.error === "string" && body.error.includes("gridworld"));
+    const morphology = await get(`/api/morphology?experiment=${e.id}&trial=${trial.id}`);
+    ok("morphology plan exposes embodied body", morphology.viewer_kind === "morphology_plan");
+    ok("morphology plan is not a replay", morphology.physics_replay === false);
+    ok("morphology plan has links and joints", Array.isArray(morphology.body?.segments) && Array.isArray(morphology.body?.joints));
+    ok("morphology plan exposes calibration gate", morphology.calibration?.status === "required");
     embodiedWorldChecked = true;
   }
 }

@@ -10,10 +10,13 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+pytest.importorskip("pybullet", reason="install the embodied extra to run PyBullet tests")
+
 from origin.environments.embodied import (
     EmbodiedConfig,
     EmbodiedCreature,
     embodied_morphology_variants,
+    p,
 )
 from origin.evaluation.embodied import (
     EmbodiedEpisode,
@@ -27,7 +30,10 @@ from origin.evolution.ga import fixed_objective_ga
 from origin.organisms.morphology import Morphology
 from origin.organisms.organism import Organism
 
-pytestmark = pytest.mark.embodied
+pytestmark = [
+    pytest.mark.embodied,
+    pytest.mark.skipif(p is None, reason="pybullet is not installed"),
+]
 
 
 @pytest.fixture(scope="module")

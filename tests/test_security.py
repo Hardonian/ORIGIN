@@ -52,6 +52,13 @@ def test_api_binds_loopback_by_default():
     assert 'default="127.0.0.1"' in text, "API must default to loopback"
 
 
+def test_api_enforces_auth_on_external_interface():
+    text = (PKG / "experiments" / "api.py").read_text()
+    assert "secrets.token_hex" in text, "API must generate or require a token for external binding"
+    assert "ORIGIN_API_KEY" in text, "API must support ORIGIN_API_KEY environment variable"
+    assert "compare_digest" in text, "API must use constant-time digest comparison"
+
+
 def test_no_shell_true_or_eval_of_user_input():
     offenders = []
     for p in _python_files():

@@ -1,6 +1,7 @@
 "use client";
+
 import { useEffect, useMemo, useState } from "react";
-import { API_BASE, apiGet, ExperimentSummary, parseJson, Trial } from "@/lib/api";
+import { API_BASE, apiGet, ExperimentSummary, Trial } from "@/lib/api";
 
 interface WorldData {
   experiment_id: string;
@@ -15,6 +16,35 @@ interface WorldData {
   morphology: Record<string, unknown>;
 }
 
+interface ExperimentDetail {
+  experiment: { config_json: string };
+  trials: Trial[];
+}
+
+interface MorphologyPlan {
+  viewer_kind: "morphology_plan";
+  experiment_id: string;
+  trial_id: string;
+  physics_replay: false;
+  body: {
+    morphology: string;
+    segments: { index: number; center_x: number; length: number; radius: number }[];
+    joints: { index: number; x: number; axis: string }[];
+    joint_axis: string;
+    joint_limit: number;
+    joint_max_torque: number;
+    gait_amplitude: number;
+    motor_position_gain: number;
+    motor_velocity_gain: number;
+    lateral_friction: number;
+    longitudinal_friction: number;
+  };
+  organism_morphology: Record<string, unknown> | null;
+  calibration: { status: string; acceptance: string; command: string };
+}
+
+type EnvironmentKind = "gridworld" | "embodied" | null;
+
 const COLORS: Record<number, string> = {
   0: "#121821",
   1: "#3b4657",
@@ -23,13 +53,25 @@ const COLORS: Record<number, string> = {
   4: "#4f9cf9",
 };
 
+function kindFromDetail(detail: ExperimentDetail): Exclude<EnvironmentKind, null> {
+  try {
+    const config = JSON.parse(detail.experiment.config_json) as { env_kind?: string };
+    return config.env_kind === "embodied" ? "embodied" : "gridworld";
+  } catch {
+    return "gridworld";
+  }
+}
+
 export default function WorldPage() {
   const [exps, setExps] = useState<ExperimentSummary[]>([]);
   const [expId, setExpId] = useState("");
   const [trials, setTrials] = useState<Trial[]>([]);
   const [trialId, setTrialId] = useState("");
+  const [envKind, setEnvKind] = useState<EnvironmentKind>(null);
+  const [resolvedExpId, setResolvedExpId] = useState("");
   const [seed, setSeed] = useState(101);
   const [world, setWorld] = useState<WorldData | null>(null);
+  const [plan, setPlan] = useState<MorphologyPlan | null>(null);
   const [step, setStep] = useState(0);
   const [err, setErr] = useState<string | null>(null);
 
@@ -44,56 +86,83 @@ export default function WorldPage() {
 
   useEffect(() => {
     if (!expId) return;
-    apiGet<{ trials: Trial[] }>(`/api/experiments/${expId}`)
-      .then((d) => {
-        const trained = d.trials.filter(
-          (t) => t.status === "done" && !["random", "heuristic"].includes(t.algorithm)
-        );
-        setTrials(trained);
-        setTrialId(trained[0]?.id ?? "");
-      })
-      .catch((e) => setErr(String(e)));
-  }, [expId]);
-
-  useEffect(() => {
-    if (!expId || !trialId) return;
     let cancelled = false;
-    apiGet<WorldData>(`/api/world?experiment=${expId}&trial=${trialId}&seed=${seed}`)
-      .then((w) => {
+    apiGet<ExperimentDetail>(`/api/experiments/${expId}`)
+      .then((d) => {
         if (cancelled) return;
-        setWorld(w);
-        setStep(0);
+        const kind = kindFromDetail(d);
+        const completed = d.trials.filter(
+          (t) =>
+            t.status === "done" &&
+            (kind === "embodied" || !["random", "heuristic"].includes(t.algorithm))
+        );
+        setResolvedExpId(expId);
+        setEnvKind(kind);
+        setTrials(completed);
+        setTrialId(completed[0]?.id ?? "");
         setErr(null);
       })
-      .catch((e) => {
-        if (!cancelled) setErr(String(e));
-      });
+      .catch((e) => !cancelled && setErr(String(e)));
     return () => {
       cancelled = true;
     };
-  }, [expId, trialId, seed]);
+  }, [expId]);
 
-  // Derived rather than stored: the replay is stale until the fetched world
-  // matches the currently selected experiment/trial/seed.
-  const stale = !world || world.trial_id !== trialId || world.seed !== seed;
-  const loading = stale && !err;
+  useEffect(() => {
+    if (!expId || resolvedExpId !== expId || !trialId || !envKind) return;
+    let cancelled = false;
+    const request =
+      envKind === "embodied"
+        ? apiGet<MorphologyPlan>(`/api/morphology?experiment=${expId}&trial=${trialId}`)
+        : apiGet<WorldData>(`/api/world?experiment=${expId}&trial=${trialId}&seed=${seed}`);
+    request
+      .then((data) => {
+        if (cancelled) return;
+        if (envKind === "embodied") {
+          setPlan(data as MorphologyPlan);
+        } else {
+          setWorld(data as WorldData);
+          setStep(0);
+        }
+      })
+      .catch((e) => !cancelled && setErr(String(e)));
+    return () => {
+      cancelled = true;
+    };
+  }, [envKind, expId, resolvedExpId, trialId, seed]);
+
+  const detailStale = resolvedExpId !== expId;
+  const stale =
+    detailStale ||
+    (envKind === "embodied"
+      ? !plan || plan.trial_id !== trialId || plan.experiment_id !== expId
+      : !world || world.trial_id !== trialId || world.experiment_id !== expId || world.seed !== seed);
+  const loading = Boolean(expId && trialId && envKind && stale && !err);
 
   const grid = useMemo(() => {
     if (!world) return null;
-    const g = world.grid.map((row) => row.slice());
+    const replay = world.grid.map((row) => row.slice());
     if (world.trajectory.length > 0) {
       const pos = step === 0 ? null : world.trajectory[step - 1].agent;
-      if (pos) g[pos[0]][pos[1]] = 4;
+      if (pos) replay[pos[0]][pos[1]] = 4;
     }
-    return g;
+    return replay;
   }, [world, step]);
+
+  const segmentPositions = useMemo(() => {
+    const n = plan?.body.segments.length ?? 0;
+    const width = Math.max(420, n * 58);
+    const spacing = n > 1 ? (width - 80) / (n - 1) : 0;
+    return { width, y: 110, at: (i: number) => 40 + i * spacing };
+  }, [plan]);
 
   return (
     <div>
-      <h1>World viewer</h1>
+      <h1>World &amp; body viewer</h1>
       <p className="sub">
-        Deterministic environment inspection with a trained organism replayed from stored
-        state. The grid, agent and trajectory are regenerated by the backend — not mocked.
+        Grid experiments are replayed from stored organisms. Embodied experiments render their
+        persisted body specification and calibration gate; no physics trajectory is displayed
+        until the crawler passes its PyBullet acceptance probe.
       </p>
 
       <div className="panel">
@@ -114,28 +183,31 @@ export default function WorldPage() {
               </option>
             ))}
           </select>
-          <label>world seed</label>
-          <input
-            type="number"
-            value={seed}
-            onChange={(e) => setSeed(Number(e.target.value))}
-            style={{ width: 90 }}
-          />
+          {envKind === "gridworld" ? (
+            <>
+              <label>world seed</label>
+              <input
+                type="number"
+                value={seed}
+                onChange={(e) => setSeed(Number(e.target.value))}
+                style={{ width: 90 }}
+              />
+            </>
+          ) : envKind === "embodied" ? (
+            <span className="badge running">physics calibration required</span>
+          ) : null}
         </div>
       </div>
 
-      {loading && <p className="muted">replaying…</p>}
+      {loading && <p className="muted">loading persisted experiment state…</p>}
       {err && (
         <div className="panel">
           <p className="err">{err}</p>
-          <p className="muted">
-            Baselines (random/heuristic) have no stored organism; pick a trained trial.
-            API: {API_BASE}
-          </p>
+          <p className="muted">API: {API_BASE}</p>
         </div>
       )}
 
-      {!stale && grid && world && (
+      {!stale && grid && world && envKind === "gridworld" && (
         <div className="panel">
           <div className="row" style={{ justifyContent: "space-between" }}>
             <div>
@@ -171,6 +243,65 @@ export default function WorldPage() {
           <p className="muted" style={{ marginTop: 10 }}>
             morphology: {JSON.stringify(world.morphology)} · obs mode {String(world.config.obs_mode)}
           </p>
+        </div>
+      )}
+
+      {!stale && plan && envKind === "embodied" && (
+        <div className="panel">
+          <div className="row" style={{ justifyContent: "space-between" }}>
+            <div>
+              <strong>{plan.body.morphology}</strong> · {plan.body.segments.length} capsules ·{" "}
+              {plan.body.joints.length} {plan.body.joint_axis} joints
+            </div>
+            <span className="badge running">schematic, not a physics replay</span>
+          </div>
+          <svg
+            className="morphology-plan"
+            viewBox={`0 0 ${segmentPositions.width} 220`}
+            role="img"
+            aria-label={`${plan.body.morphology} body plan with ${plan.body.joints.length} ${plan.body.joint_axis} joints`}
+          >
+            <line x1="24" y1={segmentPositions.y} x2={segmentPositions.width - 24} y2={segmentPositions.y} className="body-axis" />
+            {plan.body.segments.map((segment) => (
+              <rect
+                key={segment.index}
+                className="body-segment"
+                x={segmentPositions.at(segment.index) - 21}
+                y={segmentPositions.y - 14}
+                width="42"
+                height="28"
+                rx="14"
+              />
+            ))}
+            {plan.body.joints.map((joint) => (
+              <circle
+                key={joint.index}
+                className="body-joint"
+                cx={(segmentPositions.at(joint.index) + segmentPositions.at(joint.index + 1)) / 2}
+                cy={segmentPositions.y}
+                r="5"
+              />
+            ))}
+            <text x="24" y="42" className="svg-label">head / +x</text>
+            <text x="24" y="190" className="svg-label">low longitudinal grip {plan.body.longitudinal_friction.toFixed(2)}</text>
+            <text x={segmentPositions.width - 210} y="190" className="svg-label">lateral grip {plan.body.lateral_friction.toFixed(2)}</text>
+          </svg>
+          <div className="metric-grid">
+            <div><span>joint limit</span><strong>{plan.body.joint_limit.toFixed(2)} rad</strong></div>
+            <div><span>motor cap</span><strong>{plan.body.joint_max_torque.toFixed(2)} N·m</strong></div>
+            <div><span>wave amplitude</span><strong>{plan.body.gait_amplitude.toFixed(2)}× limit</strong></div>
+            <div><span>position gain</span><strong>{plan.body.motor_position_gain.toFixed(2)}</strong></div>
+          </div>
+          <div className="calibration-callout">
+            <strong>Calibration gate · {plan.calibration.status}</strong>
+            <p>{plan.calibration.acceptance}</p>
+            <code>{plan.calibration.command}</code>
+          </div>
+          {plan.organism_morphology && (
+            <p className="muted" style={{ marginTop: 12 }}>
+              Stored organism morphology: {JSON.stringify(plan.organism_morphology)}
+            </p>
+          )}
         </div>
       )}
     </div>

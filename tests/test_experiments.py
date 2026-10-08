@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from origin.experiments.api import _morphology_plan
 from origin.experiments.runner import (
     environment_manifest,
     experiment_id,
@@ -86,6 +87,39 @@ def test_store_failure_recorded(tmp_path):
     store.fail_trial("t1", "boom")
     assert store.trial_status("t1") == "failed"
     assert store.summary("e1")["n_failed"] == 1
+
+
+def test_embodied_morphology_plan_comes_from_persisted_config(tmp_path):
+    """The lab may inspect a declared body before a PyBullet host is available.
+
+    It must return the configured contact/actuation plan, not claim to have
+    replayed an unverified physics trajectory.
+    """
+    cfg = {
+        "name": "embodied-viewer-fixture",
+        "protocol": "test",
+        "env_kind": "embodied",
+        "env": {
+            "morphology": "centipede",
+            "n_links": 6,
+            "link_length": 0.12,
+            "joint_axis": "yaw",
+            "lateral_friction": 1.2,
+            "longitudinal_friction": 0.2,
+        },
+    }
+    store = Store(tmp_path)
+    store.upsert_experiment("embodied", cfg["name"], cfg["protocol"], "hash", cfg, None)
+    store.add_trial("trial-1", "embodied", "fixed_objective_ga", 1, 100)
+
+    plan = _morphology_plan(store, "embodied", "trial-1")
+    assert plan["viewer_kind"] == "morphology_plan"
+    assert plan["physics_replay"] is False
+    assert len(plan["body"]["segments"]) == 7  # base + six links
+    assert len(plan["body"]["joints"]) == 6
+    assert plan["body"]["joint_axis"] == "yaw"
+    assert plan["body"]["lateral_friction"] > plan["body"]["longitudinal_friction"]
+    assert plan["calibration"]["status"] == "required"
 
 
 def test_runner_end_to_end(tmp_path):

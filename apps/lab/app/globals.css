@@ -47,3 +47,14 @@ code { background: var(--panel2); padding: 1px 5px; border-radius: 4px; }
 textarea { width: 100%; min-height: 320px; }
 .legend { display: flex; gap: 14px; flex-wrap: wrap; color: var(--muted); margin-top: 8px; }
 .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+.morphology-plan { display: block; width: 100%; max-width: 860px; height: auto; margin: 16px 0 4px; background: #0d131c; border: 1px solid var(--border); border-radius: 6px; }
+.body-axis { stroke: #44546a; stroke-width: 2; stroke-dasharray: 5 5; }
+.body-segment { fill: #285e98; stroke: #7bb6f0; stroke-width: 1.5; }
+.body-joint { fill: var(--warn); stroke: #ffd38a; stroke-width: 1; }
+.svg-label { fill: var(--muted); font-size: 13px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 8px; margin-top: 12px; }
+.metric-grid div { padding: 8px; background: var(--panel2); border-radius: 5px; }
+.metric-grid span { display: block; color: var(--muted); font-size: 11px; }
+.metric-grid strong { display: block; margin-top: 2px; }
+.calibration-callout { margin-top: 14px; padding: 10px; border-left: 3px solid var(--warn); background: #201b12; }
+.calibration-callout p { margin: 5px 0; color: var(--muted); }
