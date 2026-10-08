@@ -1,0 +1,16 @@
+[Unit]
+Description=ORIGIN Research Lab API Service
+After=network.target
+
+[Service]
+Type=simple
+User=%I
+WorkingDirectory=/opt/origin
+ExecStart=/opt/origin/.venv/bin/origin-api --store /opt/origin/runs --host 127.0.0.1 --port 8788
+Restart=always
+RestartSec=5
+Environment=ORIGIN_STORE=/opt/origin/runs
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

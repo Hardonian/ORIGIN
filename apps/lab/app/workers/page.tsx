@@ -17,28 +17,44 @@ export default function WorkersPage() {
   const [reapMessage, setReapMessage] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
 
-  const fetchStatus = async () => {
-    try {
-      const [wRep, cRep] = await Promise.all([
-        apiGet<WorkerReport>("/api/workers"),
-        apiGet<SystemCapabilities>("/api/capabilities"),
-      ]);
-      setReport(wRep);
-      setCaps(cRep);
-      setError(null);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   useEffect(() => {
-    fetchStatus();
-    if (!autoRefresh) return;
-    const interval = setInterval(fetchStatus, 3000);
-    return () => clearInterval(interval);
-  }, [autoRefresh]);
+    let cancelled = false;
+    Promise.all([
+      apiGet<WorkerReport>("/api/workers"),
+      apiGet<SystemCapabilities>("/api/capabilities"),
+    ])
+      .then(([wRep, cRep]) => {
+        if (cancelled) return;
+        setReport(wRep);
+        setCaps(cRep);
+        setError(null);
+        setLoading(false);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : String(err));
+        setLoading(false);
+      });
+
+    if (!autoRefresh) {
+      return () => {
+        cancelled = true;
+      };
+    }
+    const interval = setInterval(() => {
+      setRefreshTrigger((prev) => prev + 1);
+    }, 3000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [autoRefresh, refreshTrigger]);
+
+  const handleRefresh = () => {
+    setRefreshTrigger((prev) => prev + 1);
+  };
 
   const handleReap = async () => {
     try {
@@ -49,7 +65,7 @@ export default function WorkersPage() {
       setReapMessage(
         `Reaped ${res.dead_workers.length} dead worker(s); reclaimed ${res.recovered_trials.length} trial(s) back to queue.`
       );
-      await fetchStatus();
+      handleRefresh();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err));
     }
@@ -84,7 +100,7 @@ export default function WorkersPage() {
             />
             Auto-refresh (3s)
           </label>
-          <button onClick={fetchStatus}>Refresh</button>
+          <button onClick={handleRefresh}>Refresh</button>
           <button className="primary" onClick={handleReap}>
             Reap Stale Workers
           </button>

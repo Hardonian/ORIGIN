@@ -14,6 +14,14 @@ function ok(name, cond, extra = "") {
   checks.push({ name, pass: !!cond, extra });
 }
 
+const caps = await get("/api/capabilities");
+ok("capabilities returns status ready", caps.status === "ready");
+ok("capabilities exposes simulators", Array.isArray(caps.simulators));
+
+const workers = await get("/api/workers");
+ok("workers report exposes workers array", Array.isArray(workers.workers));
+ok("workers report exposes trial_counts", typeof workers.trial_counts === "object");
+
 const exps = await get("/api/experiments");
 ok("experiments is array", Array.isArray(exps));
 ok("experiment has summary", exps.length === 0 || typeof exps[0].summary?.n_done === "number");
@@ -81,4 +89,4 @@ for (const c of checks) {
   console.log(`${c.pass ? "PASS" : "FAIL"}  ${c.name}${c.extra ? "  " + c.extra : ""}`);
 }
 console.log(`\n${checks.length - failed}/${checks.length} checks passed`);
-process.exit(failed ? 1 : 0);
+if (failed) process.exitCode = 1;

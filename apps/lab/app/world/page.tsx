@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { API_BASE, apiGet, ExperimentSummary, Trial } from "@/lib/api";
+import MorphologyCanvas3D from "./MorphologyCanvas3D";
 
 interface WorldData {
   experiment_id: string;
@@ -73,6 +74,7 @@ export default function WorldPage() {
   const [world, setWorld] = useState<WorldData | null>(null);
   const [plan, setPlan] = useState<MorphologyPlan | null>(null);
   const [step, setStep] = useState(0);
+  const [viewerTab, setViewerTab] = useState<"3d" | "2d">("3d");
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
@@ -248,44 +250,66 @@ export default function WorldPage() {
 
       {!stale && plan && envKind === "embodied" && (
         <div className="panel">
-          <div className="row" style={{ justifyContent: "space-between" }}>
+          <div className="row" style={{ justifyContent: "space-between", marginBottom: 12 }}>
             <div>
               <strong>{plan.body.morphology}</strong> · {plan.body.segments.length} capsules ·{" "}
               {plan.body.joints.length} {plan.body.joint_axis} joints
             </div>
-            <span className="badge running">schematic, not a physics replay</span>
+            <div className="row">
+              <button
+                className={viewerTab === "3d" ? "primary" : ""}
+                onClick={() => setViewerTab("3d")}
+                style={{ padding: "3px 10px", fontSize: 12 }}
+              >
+                3D Articulated Kinematics
+              </button>
+              <button
+                className={viewerTab === "2d" ? "primary" : ""}
+                onClick={() => setViewerTab("2d")}
+                style={{ padding: "3px 10px", fontSize: 12 }}
+              >
+                2D Blueprint Schematic
+              </button>
+            </div>
           </div>
-          <svg
-            className="morphology-plan"
-            viewBox={`0 0 ${segmentPositions.width} 220`}
-            role="img"
-            aria-label={`${plan.body.morphology} body plan with ${plan.body.joints.length} ${plan.body.joint_axis} joints`}
-          >
-            <line x1="24" y1={segmentPositions.y} x2={segmentPositions.width - 24} y2={segmentPositions.y} className="body-axis" />
-            {plan.body.segments.map((segment) => (
-              <rect
-                key={segment.index}
-                className="body-segment"
-                x={segmentPositions.at(segment.index) - 21}
-                y={segmentPositions.y - 14}
-                width="42"
-                height="28"
-                rx="14"
-              />
-            ))}
-            {plan.body.joints.map((joint) => (
-              <circle
-                key={joint.index}
-                className="body-joint"
-                cx={(segmentPositions.at(joint.index) + segmentPositions.at(joint.index + 1)) / 2}
-                cy={segmentPositions.y}
-                r="5"
-              />
-            ))}
-            <text x="24" y="42" className="svg-label">head / +x</text>
-            <text x="24" y="190" className="svg-label">low longitudinal grip {plan.body.longitudinal_friction.toFixed(2)}</text>
-            <text x={segmentPositions.width - 210} y="190" className="svg-label">lateral grip {plan.body.lateral_friction.toFixed(2)}</text>
-          </svg>
+
+          {viewerTab === "3d" ? (
+            <div style={{ marginBottom: 14 }}>
+              <MorphologyCanvas3D body={plan.body} />
+            </div>
+          ) : (
+            <svg
+              className="morphology-plan"
+              viewBox={`0 0 ${segmentPositions.width} 220`}
+              role="img"
+              aria-label={`${plan.body.morphology} body plan with ${plan.body.joints.length} ${plan.body.joint_axis} joints`}
+            >
+              <line x1="24" y1={segmentPositions.y} x2={segmentPositions.width - 24} y2={segmentPositions.y} className="body-axis" />
+              {plan.body.segments.map((segment) => (
+                <rect
+                  key={segment.index}
+                  className="body-segment"
+                  x={segmentPositions.at(segment.index) - 21}
+                  y={segmentPositions.y - 14}
+                  width="42"
+                  height="28"
+                  rx="14"
+                />
+              ))}
+              {plan.body.joints.map((joint) => (
+                <circle
+                  key={joint.index}
+                  className="body-joint"
+                  cx={(segmentPositions.at(joint.index) + segmentPositions.at(joint.index + 1)) / 2}
+                  cy={segmentPositions.y}
+                  r="5"
+                />
+              ))}
+              <text x="24" y="42" className="svg-label">head / +x</text>
+              <text x="24" y="190" className="svg-label">low longitudinal grip {plan.body.longitudinal_friction.toFixed(2)}</text>
+              <text x={segmentPositions.width - 210} y="190" className="svg-label">lateral grip {plan.body.lateral_friction.toFixed(2)}</text>
+            </svg>
+          )}
           <div className="metric-grid">
             <div><span>joint limit</span><strong>{plan.body.joint_limit.toFixed(2)} rad</strong></div>
             <div><span>motor cap</span><strong>{plan.body.joint_max_torque.toFixed(2)} N·m</strong></div>

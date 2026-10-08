@@ -18,13 +18,11 @@ const LINKS = [
 
 export default function Nav() {
   const path = usePathname();
-  const [token, setToken] = useState("");
+  const [token, setToken] = useState(() => (typeof window !== "undefined" ? getAuthToken() : ""));
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [inputToken, setInputToken] = useState("");
 
   useEffect(() => {
-    const cur = getAuthToken();
-    setToken(cur);
     const handleAuthChange = () => setToken(getAuthToken());
     window.addEventListener("origin_auth_changed", handleAuthChange);
     return () => window.removeEventListener("origin_auth_changed", handleAuthChange);

@@ -1,0 +1,16 @@
+[Unit]
+Description=ORIGIN Distributed Compute Worker Daemon
+After=network.target
+
+[Service]
+Type=simple
+User=%I
+WorkingDirectory=/opt/origin
+ExecStart=/opt/origin/.venv/bin/origin-worker --store /opt/origin/runs --stale-after 120
+Restart=always
+RestartSec=10
+Environment=ORIGIN_STORE=/opt/origin/runs
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

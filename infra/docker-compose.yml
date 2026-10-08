@@ -1,0 +1,48 @@
+version: "3.8"
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+    container_name: origin-api
+    restart: unless-stopped
+    command: origin-api --store /origin/runs --host 0.0.0.0 --port 8788
+    environment:
+      - ORIGIN_API_KEY=${ORIGIN_API_KEY:-}
+    ports:
+      - "8788:8788"
+    volumes:
+      - origin-data:/origin/runs
+
+  lab:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+    container_name: origin-lab
+    restart: unless-stopped
+    working_dir: /origin/apps/lab
+    command: npm run start
+    environment:
+      - NEXT_PUBLIC_ORIGIN_API=http://api:8788
+      - NEXT_PUBLIC_ORIGIN_API_KEY=${ORIGIN_API_KEY:-}
+    ports:
+      - "4317:4317"
+    depends_on:
+      - api
+
+  worker:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+    container_name: origin-worker-1
+    restart: unless-stopped
+    command: origin-worker --config configs/pilot.json --store /origin/runs --stale-after 120
+    volumes:
+      - origin-data:/origin/runs
+    depends_on:
+      - api
+
+volumes:
+  origin-data:
+    name: origin-runs-data

@@ -34,7 +34,7 @@ def test_doctor_store_check(tmp_path):
     # Initialized
     from origin.experiments.store import Store
 
-    store = Store(tmp_path / "runs")
+    Store(tmp_path / "runs")
     rep = check_store(tmp_path / "runs")
     assert rep["exists"] is True
     assert rep["initialized"] is True
