@@ -32,7 +32,6 @@ export default function WorldPage() {
   const [world, setWorld] = useState<WorldData | null>(null);
   const [step, setStep] = useState(0);
   const [err, setErr] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     apiGet<ExperimentSummary[]>("/api/experiments")
@@ -58,17 +57,26 @@ export default function WorldPage() {
 
   useEffect(() => {
     if (!expId || !trialId) return;
-    setLoading(true);
-    setWorld(null);
-    setErr(null);
+    let cancelled = false;
     apiGet<WorldData>(`/api/world?experiment=${expId}&trial=${trialId}&seed=${seed}`)
       .then((w) => {
+        if (cancelled) return;
         setWorld(w);
         setStep(0);
+        setErr(null);
       })
-      .catch((e) => setErr(String(e)))
-      .finally(() => setLoading(false));
+      .catch((e) => {
+        if (!cancelled) setErr(String(e));
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [expId, trialId, seed]);
+
+  // Derived rather than stored: the replay is stale until the fetched world
+  // matches the currently selected experiment/trial/seed.
+  const stale = !world || world.trial_id !== trialId || world.seed !== seed;
+  const loading = stale && !err;
 
   const grid = useMemo(() => {
     if (!world) return null;
@@ -127,7 +135,7 @@ export default function WorldPage() {
         </div>
       )}
 
-      {grid && world && (
+      {!stale && grid && world && (
         <div className="panel">
           <div className="row" style={{ justifyContent: "space-between" }}>
             <div>

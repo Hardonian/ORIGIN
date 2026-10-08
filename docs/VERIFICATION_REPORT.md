@@ -123,14 +123,22 @@ This is a bounded null for the project's own primary hypothesis, reported as suc
 
 ## UI build & contract
 
+Frontend stack after the security upgrade: **`next@16.4.0`**, React 18.3.1,
+**ESLint 9.39.5** with a flat config (`apps/lab/eslint.config.mjs`) replacing the
+`next lint` command that Next 16 removed.
+
 ```
-$ cd apps/lab && npm run typecheck
+$ cd apps/lab && npm run lint
+(clean — the stricter react-hooks rules flagged two setState-in-effect call sites,
+ both fixed properly by deriving the stale/loading state instead of storing it)
+
+$ npm run typecheck
 (no errors)
 
 $ npm run build
 ✓ Compiled successfully
-✓ Generating static pages (10/10)
-10 routes emitted (/, /world, /evolution, /designer, /benchmark, /artifacts, /failures, _not-found)
+✓ Generating static pages (9/9)
+all routes emitted: / /_not-found /artifacts /benchmark /designer /evolution /failures /world
 
 $ node scripts/smoke-api.mjs
 13/13 checks passed
@@ -181,6 +189,14 @@ All eight are Low severity and accepted with justification:
 ```
 $ .venv/bin/pip-audit --progress-spinner off
 No known vulnerabilities found
+
+$ cd apps/lab && npm audit
+5 high severity vulnerabilities — all one dev-only advisory: GHSA-vfj7-8cjw-p6xm
+  (braces, via eslint-config-next -> @next/eslint-plugin-next -> fast-glob -> micromatch)
+  No Next.js runtime advisories remain after the next@16.4.0 upgrade.
+  braces@3.0.3 is the newest release and the advisory covers all versions, so it is
+  not fixable at present; npm audit fix --force only offers a DOWNGRADE. Documented
+  in SECURITY.md rather than suppressed.
 ```
 
 `tests/test_security.py` (5 tests) asserts: no hardcoded secrets, no `pickle` and

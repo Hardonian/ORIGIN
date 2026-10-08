@@ -25,7 +25,6 @@ export default function OverviewPage() {
 
   useEffect(() => {
     if (!sel) return;
-    setCmp(null);
     apiGet<Comparison>(`/api/compare?experiment=${sel}`)
       .then(setCmp)
       .catch((e) => setErr(String(e)));
@@ -93,7 +92,7 @@ export default function OverviewPage() {
         )}
       </div>
 
-      {cmp && (
+      {cmp && cmp.experiment_id === sel && (
         <div className="panel">
           <h2>Method comparison — {cmp.experiment_id} ({cmp.n_done} trials)</h2>
           <table>

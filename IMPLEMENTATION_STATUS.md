@@ -14,7 +14,7 @@
 | 3 | Learning & evolution baselines | **done** | GA, novelty search, MAP-Elites, REINFORCE all run under a shared interaction budget |
 | 4 | Embodied intelligence / morphology transfer | **partial** | 2D sensor/actuator/body transfer + adaptation implemented and measured. **Not done:** articulated-body physics (PyBullet/MuJoCo) |
 | 5 | Experiment orchestration | **done** | `origin.experiments.runner` + `store`; manifests, resume, cancellation, bounded concurrency, CSV/Parquet |
-| 6 | Research lab UI | **done** | 7 screens build; 6 headless-Chromium E2E tests verify live-data rendering |
+| 6 | Research lab UI | **done** | 7 screens on **Next 16.4.0**; ESLint 9 flat config; 6 headless-Chromium E2E tests verify live-data rendering |
 | 7 | Local compute distribution | **partial** | CPU-first; `--jobs` concurrency; `scripts/origin_remote_worker.sh` ready. The EPYC tailnode is **offline** (see Blockers) |
 | 8 | First research campaign | **done** | Pilot 30/30 + study 1 (60/60) + study v2 (60/60) + study v3 (160/160) — all 0 failures. **H1 not established, null BOUNDED**: v3 at n=40 (MDE 0.708) found −0.221 [−0.72, +0.26], so any MAP-Elites advantage is < ~0.71; the v2 hint did not replicate |
 
@@ -74,11 +74,12 @@ ERROR: epyc is not reachable over SSH.   (expected: node offline — see Blocker
 
 ## Known defects / limitations
 
-* **Frontend dependency advisories.** `npm audit` reports 4 advisories against
-  `next@14.2.35` requiring a breaking `next@16` upgrade (which also removes
-  `next lint`). None apply to this configuration (no rewrites, no server actions,
-  no `next/image`/AVIF, Linux host, loopback-only). Documented in `SECURITY.md`;
-  the upgrade is tracked below. PostCSS advisories were fixed via an override.
+* **Frontend dependency advisories.** The 4 Next.js runtime advisories are
+  **resolved** by the `next@16.4.0` upgrade (with ESLint 9 flat config replacing
+  the removed `next lint`). One **dev-only** advisory remains unfixable at present:
+  `braces` (via the Next lint plugin), where `braces@3.0.3` is the newest release
+  and the advisory covers all versions. Documented in `SECURITY.md`; not shipped in
+  the app bundle.
 * **REINFORCE is weak** at the pilot budget and previously collapsed to a
   single action; an entropy bonus was added, which raised it above the collapse
   but it still trails the random control. Reported honestly; it bounds RL claims.
@@ -103,14 +104,13 @@ ERROR: epyc is not reachable over SSH.   (expected: node offline — see Blocker
 
 ## Remaining work
 
-1. Upgrade the lab frontend to `next@16` to clear the 4 documented advisories
-   (requires migrating `next lint` → ESLint CLI and React 19).
-2. Articulated-physics embodiment (Milestone 4) with a real physics engine.
-3. A QD-favouring task and a higher-powered replication: at n=10 the CIs still
-   span 0, so no diversity-method advantage is established. A paired design (the
-   methods share seeds) would be more efficient than the registered unpaired test.
+1. Articulated-physics embodiment (Milestone 4) with a real physics engine.
+2. A multi-niche task: H1 is closed for the current single-niche world as a bounded
+   null (< ~0.71). Test whether a task where quality-diversity has somewhere to put
+   its diversity shows an effect — pre-register the environment and analysis
+   together and power-size it, as study v3 was.
+3. Watch for an upstream fix to the dev-only `braces` advisory (Next lint plugin).
 4. Optional GPU-accelerated population evaluation on the compute node.
-5. A headless browser (Playwright) smoke test for the UI in CI — **done**, in CI.
 
 ## Reproduction commands
 
