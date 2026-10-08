@@ -217,20 +217,24 @@ def test_creature_is_closed_even_when_the_policy_raises(small_body):
 
 def test_fallen_episodes_return_exactly_the_fall_penalty():
     """Every fallen episode returns exactly -fall_penalty regardless of how far
-    the body travelled first: the "dash then crash" strategy is dominated."""
+    the body travelled first: the "dash then crash" strategy is dominated.
+
+    The redesigned yaw crawler is deliberately stable at rest, so a random
+    eight-episode sample is no longer guaranteed to fall.  Forced-fall coverage
+    lives in ``test_embodied.py``; this integration-level check verifies the
+    invariant for any natural falls encountered here without making instability
+    an accidental test requirement.
+    """
     from origin.organisms.policies import RandomPolicy
 
     cfg = EmbodiedConfig.preset("worm", n_links=5, episode_seconds=3.0)
-    fell = 0
     for seed in range(1, 9):
         ep = run_embodied_episode(cfg, RandomPolicy(cfg.n_actions, seed=seed), seed=seed)
         assert not (ep.reached_target and ep.fell), "success and fall are mutually exclusive"
         if ep.fell:
-            fell += 1
             assert ep.reward == pytest.approx(-cfg.fall_penalty, abs=1e-9), (
                 f"seed {seed}: fallen episode returned {ep.reward}, expected {-cfg.fall_penalty}"
             )
-    assert fell >= 1, "no episode fell across 8 seeds; the invariant was never exercised"
 
 
 def test_transfer_refuses_adaptation_without_held_out_seeds(small_body, organism):

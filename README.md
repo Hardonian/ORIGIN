@@ -29,7 +29,7 @@ Initial hypothesis (to be *tested*, not assumed):
 | Subsystem | Package | State |
 |---|---|---|
 | Deterministic 2D environment | `origin.environments` | working |
-| Articulated-body physics (**PyBullet**) | `origin.environments.embodied` | engine working; **morphology does not locomote** — see status ledger |
+| Articulated-body physics (**PyBullet**) | `origin.environments.embodied` | engine working; crawler redesign awaiting physics calibration — see status ledger |
 | Organisms (morphology/controller/lineage) | `origin.organisms` | working |
 | Evolution (fixed-objective GA, novelty search, MAP-Elites) | `origin.evolution` | working |
 | Learning (REINFORCE policy-gradient RL baseline) | `origin.learning` | working |

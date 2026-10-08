@@ -148,9 +148,15 @@ def _cpu_count() -> int:
     import os
 
     try:
-        return len(os.sched_getaffinity(0))
+        # ``sched_getaffinity`` is Linux-specific and absent from Windows type
+        # stubs.  Dynamic lookup preserves the cgroup-aware Linux behaviour
+        # while keeping the documented ``os.cpu_count`` fallback portable.
+        affinity = getattr(os, "sched_getaffinity", None)
+        if affinity is not None:
+            return len(affinity(0))
     except Exception:
-        return os.cpu_count() or 1
+        pass
+    return os.cpu_count() or 1
 
 
 # ---------------------------------------------------------------------- #

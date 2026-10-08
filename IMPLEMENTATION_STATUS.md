@@ -12,7 +12,7 @@
 | 1 | Artificial environment engine | **done** | `origin.environments.GridWorld`; determinism/replay/serialization tests pass |
 | 2 | Evolving organisms | **done** | `origin.organisms` (morphology/genome/lineage); invariant + serialization tests pass |
 | 3 | Learning & evolution baselines | **done** | GA, novelty search, MAP-Elites, REINFORCE all run under a shared interaction budget |
-| 4 | Embodied intelligence / morphology transfer | **INVALIDATED — blocked on morphology design** | The instrument was physically broken (links clumped at one point, capsules vertical) and three measurement defects made every number untrustworthy. All M4 results **retracted** — see the correction at the top of `research/reports/ORIGIN_M4_Embodied_Transfer_Report.md`. Corrected instrument: the chain topples at rest and **no gait/axis/torque variant locomotes** (`scripts/probe_embodied_morphology.py`); pilot `589217adbe9e` (15/15 trials) scores a constant −1.000 with 0 successes. Needs a morphology redesign (anisotropic friction / actuation scheme) before any embodied claim |
+| 4 | Embodied intelligence / morphology transfer | **INVALIDATED — redesigned, awaiting physical acceptance** | The instrument was physically broken (links clumped at one point, capsules vertical) and three measurement defects made every number untrustworthy. All M4 results **retracted** — see the correction at the top of `research/reports/ORIGIN_M4_Embodied_Transfer_Report.md`. The new yaw-jointed, anisotropic-friction crawler has regression coverage and a fail-closed calibration probe, but it has **not yet passed that probe on a supported PyBullet host**; no embodied claim is restored. |
 | 5 | Experiment orchestration | **done** | `origin.experiments.runner` + `store`; manifests, resume, cancellation, bounded concurrency, CSV/Parquet |
 | 6 | Research lab UI | **done** | 7 screens on **Next 16.4.0**; ESLint 9 flat config; 6 headless-Chromium E2E tests verify live-data rendering |
 | 7 | Local compute distribution | **partial — worker model verified; multi-host run pending** | Real worker model landed and verified across **real worker processes**: atomic trial claims, heartbeats, stale-worker recovery, keep-first completion, idempotent store merge (`origin-worker`, `origin-merge-stores`, `tests/test_worker_model.py` 19 tests). 3-process CLI campaign: 9/9 trials, claims disjoint (2+4+3), 0 duplicates. Real-crash probe `scripts/probe_worker_recovery.py`: SIGKILL mid-trial → orphan recovered, 11/11 checks. `--jobs` concurrency and `scripts/origin_remote_worker.sh` (SSH path, staged merge) ready. Remaining: one real multi-host campaign — the EPYC tailnode is **offline** (see Blockers) |
@@ -149,13 +149,12 @@ ERROR: epyc is not reachable over SSH.   (expected: node offline — see Blocker
 
 ## Known defects / limitations
 
-* **The embodied morphology does not locomote — the milestone-4 blocker.** The
-  corrected chain topples at rest (steps 137–162 with zero input) and no motor
-  program, joint axis (pitch or yaw) or torque in 0.2–1.4 N·m produces net
-  displacement (≤ 0.02 m per 6 s episode). Verified by
-  `scripts/probe_embodied_morphology.py`. Fixing this is a morphology/gait
-  design pass (anisotropic friction and/or a different actuation scheme), not a
-  parameter tweak — the design choice is pending (see Blockers).
+* **The retired v2 morphology does not locomote; the replacement is unverified.**
+  The old isotropic, vertical-plane torque chain failed the 2026-10-08 probe.
+  The replacement uses yaw joints, direction-dependent contact and force-limited
+  position motors, with a probe that fails unless a production gait gains 5 cm in
+  3 s. That acceptance run must complete on a supported PyBullet host before any
+  embodied result is reported.
 * **All M4 embodied results are retracted** (2026-10-08): the body was not the
   body the report described, the fall metric was wrap-broken, and adaptation
   gains were measured in-sample. See the correction at the top of
@@ -196,17 +195,11 @@ ERROR: epyc is not reachable over SSH.   (expected: node offline — see Blocker
 
 ## Blockers
 
-* **Embodied morphology design decision (needs the owner).** The instrument
-  cannot measure its task. Options, in ascending cost:
-  1. **Anisotropic friction** on the existing chain (PyBullet
-     `anisotropicFriction`) + lateral-undulation joints — the standard snake
-     robot arrangement, small code change, needs a calibration campaign.
-  2. **Different actuation scheme** (e.g. per-joint PD with gait phases, or
-     wheel/leg primitives) — medium effort.
-  3. **Proven third-party morphologies** (e.g. PyBullet's `minitaur` URDF) as
-     the body set — reuses known-working assets but rewrites the
-     procedural-morphology story and the fixed-interface mapping.
-  Until one is chosen, no embodied experiment should spend seeds.
+* **Embodied physics calibration.** The yaw-joint + anisotropic-friction design
+  has replaced the inert v2 chain, but this Windows host cannot install PyBullet
+  (no compatible wheel and no C++ build tools). Run
+  `scripts/probe_embodied_morphology.py` on a supported host; it must pass before
+  a new transfer campaign spends seeds.
 * **EPYC compute node is offline.** Diagnosed precisely: the node is on the
   Tailscale tailnet as `epyc` = `100.127.74.34`
   (`epyc.taile5788a.ts.net`), but `tailscale status` reports
@@ -222,10 +215,11 @@ ERROR: epyc is not reachable over SSH.   (expected: node offline — see Blocker
 
 ## Remaining work
 
-1. **Embodied morphology redesign** (blocked on the design decision above).
-   Acceptance: `scripts/probe_embodied_morphology.py` shows a policy that both
-   stays upright for a full episode *and* travels ≥ target distance; then re-run
-   the pre-registered H2 campaign unchanged and analyze it.
+1. **Embodied crawler calibration** (blocked on a supported PyBullet host).
+   Acceptance: `scripts/probe_embodied_morphology.py` shows a production gait
+   that remains upright and gains ≥5 cm in 3 s. Then set a target distance from
+   that measured speed and pre-register a fresh H2 campaign; the retracted v2
+   campaign is not reused.
 2. **Milestone 7 (compute distribution)**: the worker model is **done and
    verified** — heartbeats, atomic claims, stale-worker recovery (real SIGKILL
    probe), keep-first completion, idempotent merge by deterministic trial id,
@@ -261,9 +255,9 @@ uv venv --python 3.12 .venv && uv pip install -e '.[dev]' --python .venv/bin/pyt
 
 ## Next executable action
 
-**Owner decision required: pick the embodied morphology direction** (see
-Blockers). It gates milestone 4, the pre-registered H2, and any seed spending on
-the embodied task.
+**Run the embodied calibration probe on a supported PyBullet host** (see
+Blockers). It gates milestone 4, a fresh pre-registered H2, and any seed spending
+on the embodied task.
 
 **While that decision is pending, the highest-ROI executable work is Milestone 7
 (local compute distribution)** — the last milestone with an unverified core

@@ -101,7 +101,7 @@ class GaitPolicy:
 
     name = "scripted_gait"
 
-    def __init__(self, n_actions: int, seed: int = 0, program: tuple[int, ...] = (2, 2, 3)):
+    def __init__(self, n_actions: int, seed: int = 0, program: tuple[int, ...] = (2,)):
         self.n_actions = n_actions
         self.rng = np.random.default_rng(seed)
         self.program = tuple(a % max(1, n_actions) for a in program) or (0,)

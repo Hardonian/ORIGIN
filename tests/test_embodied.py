@@ -63,6 +63,20 @@ def test_fixed_control_interface_across_body_plans():
         env.close()
 
 
+def test_crawler_presets_have_directional_ground_contact():
+    """The default bodies must be able to turn a yaw wave into thrust.
+
+    An isotropic contact model is symmetric, so no travelling-wave controller can
+    have a preferred forward direction.  This catches a regression back to the
+    physically unsound pre-redesign configuration without depending on a fragile
+    exact displacement threshold.
+    """
+    for name in MORPHOLOGY_PRESETS:
+        cfg = EmbodiedConfig.preset(name)
+        assert cfg.joint_axis == "yaw", name
+        assert cfg.lateral_friction > cfg.longitudinal_friction, name
+
+
 def test_determinism_identical_trajectories(tiny):
     actions = [2, 3, 2, 3, 1, 0, 2, 3]
 
@@ -111,6 +125,8 @@ def test_gait_primitive_produces_locomotion():
     """
     env = EmbodiedCreature(EmbodiedConfig.preset("centipede", n_links=10, episode_seconds=3.0))
     programs = {
+        "wave_a": [2] * 80,
+        "wave_b": [3] * 80,
         "wave_23": [2, 3] * 40,
         "wave_32": [3, 2] * 40,
         "wave_223": [2, 2, 3] * 40,
@@ -160,6 +176,29 @@ def test_state_serialization_roundtrip(tiny):
     clone.close()
 
 
+def test_state_restore_rebuilds_same_sized_body_when_physics_changes(tiny):
+    """Restoring a state must restore its contact and joint model, not just pose.
+
+    This specifically exercises the former same-link-count hole in ``set_state``:
+    the receiving world started with pitch joints but the saved state is from the
+    yaw crawler, so only a full physics rebuild can make the restored state real.
+    """
+    source_cfg = EmbodiedConfig.from_dict(tiny.to_dict())
+    source_cfg.joint_axis = "yaw"
+    source = EmbodiedCreature(source_cfg)
+    source.reset(seed=2)
+    state = source.get_state()
+
+    receiver_cfg = EmbodiedConfig.from_dict(source_cfg.to_dict())
+    receiver_cfg.joint_axis = "pitch"
+    receiver = EmbodiedCreature(receiver_cfg)
+    receiver.set_state(state)
+    joint_axis = receiver._p.getJointInfo(receiver._body, 0, physicsClientId=receiver._client)[13]
+    assert np.allclose(joint_axis, [0.0, 0.0, 1.0])
+    source.close()
+    receiver.close()
+
+
 def test_state_rejects_wrong_version(tiny):
     env = EmbodiedCreature(EmbodiedConfig.from_dict(tiny.to_dict()))
     with pytest.raises(ValueError):
@@ -175,6 +214,12 @@ def test_state_rejects_wrong_version(tiny):
         {"link_length": 0.0},
         {"link_mass": -1.0},
         {"joint_max_torque": 0.0},
+        {"lateral_friction": 0.0},
+        {"longitudinal_friction": -0.1},
+        {"joint_axis": "bend"},
+        {"gait_amplitude": 1.1},
+        {"motor_position_gain": 0.0},
+        {"motor_velocity_gain": -0.1},
         {"joint_limit": 0.0},
         {"episode_seconds": 0.0},
         {"physics_dt": 0.0},

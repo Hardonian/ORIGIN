@@ -8,8 +8,9 @@ torques and friction.
 Design note — why the control interface stays small and fixed
 -------------------------------------------------------------
 A body with N joints still exposes a **fixed-size** observation
-(``[pitch, pitch_vel, mean_joint_angle, mean_joint_vel, height, target_bearing,
-target_distance]``, 7-D) and a **fixed discrete action set** of 5 motor primitives.
+(``[heading_error, yaw_vel, mean_joint_angle, mean_joint_vel, height,
+heading_alignment, target_distance]``, 7-D) and a **fixed discrete action set** of
+5 motor primitives.
 The morphology changes the *dynamics* the controller must cope with, not the size of
 its interface. That is what makes "transfer a controller to a different body" a
 well-posed experiment instead of a shape error, and it lets every existing ORIGIN
@@ -57,12 +58,18 @@ ACTION_NAMES = {0: "flex", 1: "extend", 2: "wave_a", 3: "wave_b", 4: "brake"}
 
 MORPHOLOGY_PRESETS: dict[str, dict[str, Any]] = {
     # name -> body plan parameters (see EmbodiedConfig)
+    # Every current preset is a ground crawler.  A yaw joint plus higher transverse
+    # than longitudinal friction is the minimum physically meaningful arrangement
+    # for a snake-like travelling wave to create forward thrust.
     "worm": {"n_links": 8, "link_length": 0.16, "link_radius": 0.035, "link_mass": 0.25,
-             "joint_max_torque": 2.5, "lateral_friction": 0.7},
+             "joint_max_torque": 2.5, "lateral_friction": 1.25, "longitudinal_friction": 0.20,
+             "joint_axis": "yaw"},
     "centipede": {"n_links": 14, "link_length": 0.10, "link_radius": 0.028, "link_mass": 0.12,
-                  "joint_max_torque": 1.4, "lateral_friction": 0.9},
+                  "joint_max_torque": 1.4, "lateral_friction": 1.30, "longitudinal_friction": 0.18,
+                  "joint_axis": "yaw"},
     "hopper": {"n_links": 3, "link_length": 0.30, "link_radius": 0.055, "link_mass": 0.9,
-               "joint_max_torque": 7.0, "lateral_friction": 0.6},
+               "joint_max_torque": 7.0, "lateral_friction": 1.10, "longitudinal_friction": 0.20,
+               "joint_axis": "yaw"},
 }
 
 
@@ -77,7 +84,15 @@ class EmbodiedConfig:
     link_mass: float = 0.25
     joint_max_torque: float = 2.5
     joint_limit: float = 1.10          # rad, symmetric
-    lateral_friction: float = 0.7
+    # Direction-dependent contact makes the travelling wave a locomotion gait
+    # rather than a symmetric in-place wiggle.  Friction is expressed in the
+    # body's local frame: +x is along a capsule, +y is transverse to it.
+    lateral_friction: float = 1.25
+    longitudinal_friction: float = 0.20
+    joint_axis: str = "yaw"            # yaw (ground crawler) or pitch (experimental)
+    gait_amplitude: float = 0.60        # fraction of joint_limit used by a wave
+    motor_position_gain: float = 0.35
+    motor_velocity_gain: float = 0.75
     gravity: float = -9.81
 
     episode_seconds: float = 8.0
@@ -115,6 +130,14 @@ class EmbodiedConfig:
             raise ValueError("link_length, link_radius and link_mass must be > 0")
         if self.joint_max_torque <= 0:
             raise ValueError("joint_max_torque must be > 0")
+        if self.lateral_friction <= 0 or self.longitudinal_friction <= 0:
+            raise ValueError("lateral_friction and longitudinal_friction must be > 0")
+        if self.joint_axis not in {"yaw", "pitch"}:
+            raise ValueError("joint_axis must be 'yaw' or 'pitch'")
+        if not 0 < self.gait_amplitude <= 1:
+            raise ValueError("gait_amplitude must be in (0, 1]")
+        if self.motor_position_gain <= 0 or self.motor_velocity_gain < 0:
+            raise ValueError("motor_position_gain must be > 0 and motor_velocity_gain must be >= 0")
         if not 0 < self.joint_limit <= np.pi:
             raise ValueError("joint_limit must be in (0, pi]")
         if self.episode_seconds <= 0:
@@ -234,7 +257,10 @@ class EmbodiedCreature:
         link_masses = [cfg.link_mass] * n
         link_collision = [shape] * n
         link_visual = [vis] * n
-        # links laid out along +x from the base, each rotating about +y (planar in x-z)
+        # Links lie on the ground along +x.  Their default yaw joints bend the
+        # chain in the ground plane, which is the conventional snake-robot body
+        # plan.  ``pitch`` is retained only as an explicit experimental option;
+        # it is not a viable default gait for a body resting on a flat plane.
         link_positions = [[cfg.link_length, 0.0, 0.0]] * n
         link_orientations = [[0.0, 0.0, 0.0, 1.0]] * n
         link_inertial_pos = [[0.0, 0.0, 0.0]] * n
@@ -245,7 +271,8 @@ class EmbodiedCreature:
         # by probe. The chain is what the presets and the docstring describe.)
         link_parent = list(range(n))
         link_joint_type = [self._p.JOINT_REVOLUTE] * n
-        link_joint_axis = [[0.0, 1.0, 0.0]] * n
+        joint_axis = [0.0, 0.0, 1.0] if cfg.joint_axis == "yaw" else [0.0, 1.0, 0.0]
+        link_joint_axis = [joint_axis] * n
 
         self._body = self._p.createMultiBody(
             baseMass=cfg.link_mass * 1.5,
@@ -269,12 +296,28 @@ class EmbodiedCreature:
             self._p.setJointMotorControl2(
                 self._body, j, self._p.VELOCITY_CONTROL, force=0.0, physicsClientId=self._client
             )
-            self._p.changeDynamics(
-                self._body, j,
-                jointLowerLimit=-cfg.joint_limit, jointUpperLimit=cfg.joint_limit,
-                lateralFriction=cfg.lateral_friction, physicsClientId=self._client,
-            )
-        self._p.changeDynamics(self._body, -1, lateralFriction=cfg.lateral_friction, physicsClientId=self._client)
+            self._set_link_dynamics(j)
+        self._set_link_dynamics(-1)
+
+    def _set_link_dynamics(self, link: int) -> None:
+        """Apply the crawler's local, direction-dependent ground contact model.
+
+        Bullet treats ``anisotropicFriction`` as a multiplier on
+        ``lateralFriction``.  The local x axis is the long axis of every capsule,
+        so longitudinal sliding is deliberately cheap while lateral sliding is
+        expensive.  That broken symmetry is what lets a yaw travelling wave
+        propel the body rather than simply shuffle it in place.
+        """
+        cfg = self.config
+        kwargs: dict[str, Any] = {
+            "lateralFriction": cfg.lateral_friction,
+            "anisotropicFriction": [cfg.longitudinal_friction / cfg.lateral_friction, 1.0, 1.0],
+            "physicsClientId": self._client,
+        }
+        if link >= 0:
+            kwargs["jointLowerLimit"] = -cfg.joint_limit
+            kwargs["jointUpperLimit"] = cfg.joint_limit
+        self._p.changeDynamics(self._body, link, **kwargs)
 
     # ------------------------------------------------------------------ #
     # Gymnasium-style API
@@ -312,10 +355,18 @@ class EmbodiedCreature:
             raise ValueError(f"invalid action {action!r}; expected 0..{N_ACTIONS - 1}")
         action = int(action)
 
-        torques = self._motor_command(action)
+        targets = self._motor_targets(action)
+        max_force = cfg.joint_max_torque * cfg.torque_gain
         for _ in range(cfg.n_substeps):
             self._p.setJointMotorControlArray(
-                self._body, list(range(self._n_joints)), self._p.TORQUE_CONTROL, forces=torques,
+                self._body,
+                list(range(self._n_joints)),
+                self._p.POSITION_CONTROL,
+                targetPositions=targets,
+                targetVelocities=[0.0] * self._n_joints,
+                forces=[max_force] * self._n_joints,
+                positionGains=[cfg.motor_position_gain] * self._n_joints,
+                velocityGains=[cfg.motor_velocity_gain] * self._n_joints,
                 physicsClientId=self._client,
             )
             self._p.stepSimulation(physicsClientId=self._client)
@@ -325,7 +376,11 @@ class EmbodiedCreature:
         dist = self._target_distance()
         progress = self._prev_dist - dist
         self._distance_travelled += max(0.0, progress)
-        self._energy += float(np.sum(np.abs(torques))) * cfg.control_dt
+        # Applied motor torque is reported by Bullet after the final substep.
+        # It is a better energy proxy than the available torque cap: a stalled or
+        # unloaded motor should not be charged as though it delivered full work.
+        applied = self._applied_joint_torques()
+        self._energy += float(np.sum(np.abs(applied))) * cfg.control_dt
         upright = self._is_upright()
         if upright:
             self._upright_steps += 1
@@ -333,7 +388,7 @@ class EmbodiedCreature:
         reward = progress * cfg.progress_scale
         if upright:
             reward += cfg.upright_bonus
-        reward -= cfg.energy_penalty * float(np.sum(np.abs(torques)))
+        reward -= cfg.energy_penalty * float(np.sum(np.abs(applied)))
 
         terminated = False
         self._success = False
@@ -378,23 +433,34 @@ class EmbodiedCreature:
             return False
         return pos[2] >= self.config.link_radius * 0.5
 
-    def _motor_command(self, action: int) -> list[float]:
-        """Map a discrete motor primitive to a per-joint torque vector."""
+    def _motor_targets(self, action: int) -> list[float]:
+        """Map a discrete primitive to bounded joint-angle targets.
+
+        The old open-loop torque pulses did not define a repeatable gait: a joint
+        could hit a stop, keep receiving torque, and leave all contact forces
+        symmetric.  Position targets are still force-limited by
+        ``joint_max_torque`` in :meth:`step`, but create an actual travelling
+        curvature wave that can be compared across morphologies.
+        """
         cfg = self.config
         t = self._steps
-        gain = cfg.joint_max_torque * cfg.torque_gain
         n = self._n_joints
+        amplitude = cfg.gait_amplitude * cfg.joint_limit
         if action == 0:      # flex
-            pattern = np.full(n, -1.0)
+            target = np.full(n, -amplitude)
         elif action == 1:    # extend
-            pattern = np.full(n, 1.0)
-        elif action == 2:    # travelling wave (favours +x propulsion)
-            pattern = np.sin(2.0 * np.pi * (np.arange(n) / max(1, n)) - 2.0 * np.pi * t * 0.08)
-        elif action == 3:    # opposite-phase travelling wave
-            pattern = np.sin(2.0 * np.pi * (np.arange(n) / max(1, n)) + 2.0 * np.pi * t * 0.05)
-        else:                # brake / hold
-            pattern = np.zeros(n)
-        return [float(v) for v in (pattern * gain)]
+            target = np.full(n, amplitude)
+        elif action == 2:    # travelling wave, phase moving tail -> head
+            target = amplitude * np.sin(2.0 * np.pi * (np.arange(n) / max(1, n)) - 2.0 * np.pi * t * 0.08)
+        elif action == 3:    # travelling wave in the opposite direction
+            target = amplitude * np.sin(2.0 * np.pi * (np.arange(n) / max(1, n)) + 2.0 * np.pi * t * 0.08)
+        else:                # brake / hold the neutral, straight posture
+            target = np.zeros(n)
+        return [float(v) for v in target]
+
+    def _applied_joint_torques(self) -> np.ndarray:
+        states = self._p.getJointStates(self._body, list(range(self._n_joints)), physicsClientId=self._client)
+        return np.asarray([float(s[3]) for s in states], dtype=float)
 
     def _base_pose(self) -> tuple[list[float], list[float]]:
         pos, orn = self._p.getBasePositionAndOrientation(self._body, physicsClientId=self._client)
@@ -417,24 +483,41 @@ class EmbodiedCreature:
         ang_vel = self._p.getBaseVelocity(self._body, physicsClientId=self._client)[1]
         return float(pitch), float(ang_vel[1])
 
+    def _heading_error(self) -> tuple[float, float]:
+        """Return target bearing in the body's frame and yaw velocity.
+
+        Ground crawlers steer in the x-y plane, so the old vertical target angle
+        (x-z) carried almost no useful control information.  This preserves the
+        seven-value interface while exposing the physically relevant error.
+        """
+        pos, orn = self._base_pose()
+        rot = self._p.getMatrixFromQuaternion(orn)
+        # First column of Bullet's rotation matrix is the body's local +x axis
+        # expressed in world coordinates.
+        heading = float(np.arctan2(rot[3], rot[0]))
+        d = self._target - np.asarray(pos)
+        target_heading = float(np.arctan2(d[1], d[0]))
+        error = float(np.arctan2(np.sin(target_heading - heading), np.cos(target_heading - heading)))
+        angular_velocity = self._p.getBaseVelocity(self._body, physicsClientId=self._client)[1]
+        return error, float(angular_velocity[2])
+
     def _observation(self) -> np.ndarray:
         """Fixed 7-D observation, independent of the number of joints (see module docstring)."""
         cfg = self.config
         pos, _ = self._base_pose()
-        pitch, pitch_vel = self._pitch()
+        heading_error, yaw_vel = self._heading_error()
         angles, vels = self._joint_state()
         d = self._target - np.asarray(pos)
-        bearing = float(np.arctan2(d[2], d[0]))
         dist = float(np.linalg.norm(d))
         scale = max(1e-6, cfg.target_distance)
         return np.array(
             [
-                float(np.sin(pitch)),
-                float(np.clip(pitch_vel, -10.0, 10.0) / 10.0),
+                float(np.sin(heading_error)),
+                float(np.clip(yaw_vel, -10.0, 10.0) / 10.0),
                 float(np.mean(angles) / cfg.joint_limit),
                 float(np.clip(np.mean(vels), -10.0, 10.0) / 10.0),
                 float(np.clip(pos[2], 0.0, 2.0) / 2.0),
-                float(np.sin(bearing)),
+                float(np.cos(heading_error)),
                 float(np.clip(dist / scale, 0.0, 2.0)),
             ],
             dtype=np.float32,
@@ -461,6 +544,7 @@ class EmbodiedCreature:
     def _info(self) -> dict[str, Any]:
         pos, _ = self._base_pose()
         pitch, _ = self._pitch()
+        heading_error, _ = self._heading_error()
         return {
             "position": [float(v) for v in pos],
             "agent": [float(pos[0]), float(pos[2])],
@@ -468,11 +552,13 @@ class EmbodiedCreature:
             "distance_to_target": float(self._target_distance()),
             "distance_travelled": float(self._distance_travelled),
             "pitch": float(pitch),
+            "heading_error": float(heading_error),
             "upright": bool(self._is_upright()),
             "success": bool(self._success),
             "energy": float(self._energy),
             "descriptor": self._descriptor().tolist(),
             "n_joints": int(self._n_joints),
+            "joint_axis": self.config.joint_axis,
             "config_hash": self.config.config_hash(),
             "seed": int(self.config.seed),
         }
@@ -505,10 +591,16 @@ class EmbodiedCreature:
     def set_state(self, state: dict[str, Any]) -> None:
         if state.get("version") != 1:
             raise ValueError("unsupported embodied state version")
-        self.config = EmbodiedConfig.from_dict(state["config"])
-        if self._n_joints != int(self.config.n_links):
-            self._n_joints = int(self.config.n_links)
-            self._build_body()
+        incoming_config = EmbodiedConfig.from_dict(state["config"])
+        # Rebuild the complete world when any physical property differs.  The old
+        # code rebuilt only when link count changed, leaving a same-sized restored
+        # body with the *previous* collision shape, contact friction and gravity.
+        # That made cross-morphology state restores physically inconsistent.
+        rebuild_world = incoming_config.config_hash() != self.config.config_hash()
+        self.config = incoming_config
+        self._n_joints = int(self.config.n_links)
+        if rebuild_world:
+            self._build_world()
         if len(state["joint_positions"]) != self._n_joints or len(state["joint_velocities"]) != self._n_joints:
             raise ValueError("state joint count does not match the body")
         self._rest_z = self.config.link_radius + 0.01
@@ -551,9 +643,9 @@ def embodied_morphology_variants(base: EmbodiedConfig) -> dict[str, EmbodiedConf
         "body_centipede": {"n_links": 14, "link_length": 0.10, "link_mass": 0.12, "joint_max_torque": 1.4},
         "body_short_stiff": {"n_links": 5, "link_length": 0.22, "link_mass": 0.45, "joint_max_torque": 5.0},
         "body_heavy_slow": {"n_links": 8, "link_length": 0.16, "link_mass": 0.8, "joint_max_torque": 3.0,
-                            "lateral_friction": 0.4},
+                            "lateral_friction": 0.65, "longitudinal_friction": 0.10},
         "body_slippery": {"n_links": 8, "link_length": 0.16, "link_mass": 0.25, "joint_max_torque": 2.5,
-                          "lateral_friction": 0.15},
+                          "lateral_friction": 0.35, "longitudinal_friction": 0.06},
     }.items():
         d = base.to_dict()
         d.update(mut)
@@ -568,7 +660,7 @@ def embodied_perturbation_variants(base: EmbodiedConfig) -> dict[str, EmbodiedCo
         "far_target": {"target_distance": 5.0},
         "heavy_gravity": {"gravity": -16.0},
         "low_gravity": {"gravity": -2.0},
-        "rough_friction": {"lateral_friction": 0.2},
+        "low_grip": {"lateral_friction": 0.35, "longitudinal_friction": 0.06},
         "short_episode": {"episode_seconds": 4.0},
     }.items():
         d = base.to_dict()
