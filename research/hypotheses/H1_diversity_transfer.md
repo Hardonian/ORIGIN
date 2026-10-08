@@ -30,6 +30,9 @@ fixed-objective evolution on held-out and transfer metrics.
 
 ## Status
 
-**Tested and INCONCLUSIVE at n=10.** The pre-registered powered replication is in
-`../../reports/H1_powered_analysis.md`; results and non-replication of the 5-seed
-pilot are discussed in `../../reports/ORIGIN_Initial_Research_Report.md`.
+**Tested across three studies; NOT ESTABLISHED.** Study 1 (independent design) gave
+novelty −0.228, CI [−1.43, +1.00]; study v2 (paired design, fresh seeds) gave
+novelty +0.331, CI [−0.93, +1.55] and MAP-Elites +0.790, CI [−0.16, +1.65]. Every
+registered 95% CI spans zero and the sign is unstable, so the honest verdict is
+inconclusive — no diversity advantage is established on this task.
+See `../../reports/H1_powered_analysis.md` and `../../reports/H1_paired_v2_analysis.md`.

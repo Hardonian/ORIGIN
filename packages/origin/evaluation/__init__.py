@@ -9,7 +9,13 @@ from origin.evaluation.harness import (
     perturbation_variants,
     run_episode,
 )
-from origin.evaluation.stats import DiffResult, bootstrap_diff_ci, mann_whitney
+from origin.evaluation.stats import (
+    DiffResult,
+    bootstrap_diff_ci,
+    mann_whitney,
+    paired_bootstrap_ci,
+    wilcoxon_signed_rank,
+)
 
 __all__ = [
     "EpisodeResult",
@@ -22,4 +28,6 @@ __all__ = [
     "DiffResult",
     "bootstrap_diff_ci",
     "mann_whitney",
+    "paired_bootstrap_ci",
+    "wilcoxon_signed_rank",
 ]

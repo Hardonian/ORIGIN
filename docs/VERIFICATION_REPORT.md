@@ -83,12 +83,14 @@ Mesh of results (held-out reward, n=5 seeds, 500 000 interactions/method/seed):
 | `random` | 2.010 | ±0.187 |
 | `reinforce` | 1.121 | ±0.528 |
 
-## Replication and cross-experiment determinism
+## Replication, paired design, and cross-experiment determinism
 
-The 5-seed pilot was replicated pre-registered at 10 seeds with an identical task
-and budget (`research/protocols/powered_replication.md`). Two independent
-experiments (`b61d1ac9a348`, `d0ef7208a010`) were compared on their 30 overlapping
-(algorithm, seed) pairs:
+Two pre-registered studies followed the exploratory pilot, each with its analysis
+fixed before the run (`research/protocols/powered_replication.md`,
+`research/protocols/paired_v2.md`). Study 1's registration forbade re-analysis, so
+it was **not** re-tested; study v2 is a separate prospective study on fresh seeds.
+
+Cross-experiment determinism (pilot vs study 1 — 30 overlapping (method, seed) pairs):
 
 ```
 30 overlapping (method, seed) pairs reproduced across the two independent
@@ -97,15 +99,17 @@ experiments with 0 mismatches   (exact to 6 decimal places)
 
 Held-out outcomes:
 
-| comparison | mean diff | 95% bootstrap CI | Mann–Whitney p | verdict |
-|---|---|---|---|---|
-| `novelty_search` − `fixed_objective_ga` | −0.228 | [−1.427, +0.998] | 0.5423 | **inconclusive** |
-| `map_elites` − `fixed_objective_ga` | −0.038 | [−0.972, +0.965] | 0.6219 | **inconclusive** |
+| study | seeds | design | comparison | mean diff | 95% CI | p | verdict |
+|---|---|---|---|---|---|---|---|
+| 1 | 1–10 | independent | novelty − GA | −0.228 | [−1.427, +0.998] | 0.5423 | **inconclusive** |
+| 1 | 1–10 | independent | QD − GA | −0.038 | [−0.972, +0.965] | 0.6219 | **inconclusive** |
+| v2 | 11–20 | **paired** | novelty − GA | +0.331 | [−0.932, +1.549] | 0.5566 | **inconclusive** |
+| v2 | 11–20 | **paired** | QD − GA | +0.790 | [−0.161, +1.645] | 0.2031 | **inconclusive** |
 
-The pilot's +0.362 direction for novelty search **did not replicate**. The
-replication governs, and the result is reported as inconclusive rather than as a
-near-miss. Note this is a *negative/absent* result for the project's own primary
-hypothesis, published because the platform exists to produce honest evidence.
+The pilot's +0.362 direction for novelty search **did not replicate** in study 1
+(−0.228) and swung positive again in study v2 (+0.331). The sign is unstable across
+studies and every registered 95% CI spans zero, so **H1 is not established**. This
+is a null/absent result for the project's own primary hypothesis, reported as such.
 
 ## UI build & contract
 
@@ -193,17 +197,20 @@ A green test suite is not proof of scientific correctness. Findings:
 * **No tuning against held-out seeds.** Held-out seeds were used only for
   reporting; the two task redesigns were judged on *training* behaviour and a
   held-out sanity check performed once, not iterated against.
-* **Statistical power:** the powered replication uses 10 seeds with a
-  pre-registered interval analysis (bootstrap CI + Mann–Whitney U). The CIs still
-  span zero, so H1 is **inconclusive** — the honest conclusion is "not
-  established", not "supported" and not "refuted".
+* **Statistical power:** two pre-registered 10-seed studies with interval analyses
+  (unpaired in study 1; **paired** in study v2, which is the efficient design here
+  because all methods share identical training environments). Every 95% CI still
+  spans zero, so H1 is **not established** — not supported, not refuted.
+* **A paired design was adopted for study v2 without touching study 1's data.**
+  Study 1's registration stated that no other test would be run on it, so it was
+  left alone rather than re-analysed to chase significance.
 * **An exploratory positive direction did not replicate** (novelty +0.362 at n=5
   → −0.228 at n=10). This is reported prominently rather than quietly dropped.
 
 ## Honest limitations
 
-* H1 is **not established**: at n=10 the 95% CIs for both diversity methods span
-  zero, and the exploratory positive direction did not replicate.
+* H1 is **not established**: across the pilot, study 1 (unpaired) and study v2
+  (paired), point estimates change sign and every registered 95% CI spans zero.
 * The heuristic control is privileged (global BFS) and is a reference, not a peer.
 * `reinforce` is a weak baseline here; conclusions about RL are bounded, not supported.
 * No articulated-physics embodiment exists yet (Milestone 4 is partial).

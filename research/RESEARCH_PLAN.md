@@ -13,12 +13,19 @@
 > unseen evaluation environments and to changed morphology relative to
 > fixed-objective evolutionary optimization.
 
-Status: **tested; INCONCLUSIVE at n=10.** The 5-seed pilot showed a positive
-direction for novelty search (+0.362), but the pre-registered 10-seed replication
-did **not** reproduce it (novelty −0.228, 95% CI [−1.427, +0.998]; MAP-Elites
-−0.038, 95% CI [−0.972, +0.965]; both CIs span zero). Reporting the replication
-as inconclusive rather than the pilot as a result is the point of the platform.
-See `reports/H1_powered_analysis.md` and `reports/ORIGIN_Initial_Research_Report.md`.
+Status: **tested across three studies; NOT ESTABLISHED (inconclusive in all three).**
+
+| study | seeds | design | novelty − GA | QD − GA | verdict |
+|---|---|---|---|---|---|
+| pilot | 1–5 | none (exploratory) | +0.362 | −0.071 | — |
+| study 1 | 1–10 | independent (unpaired) | −0.228, CI [−1.43, +1.00] | −0.038, CI [−0.97, +0.97] | inconclusive |
+| study v2 | 11–20 | **paired** | +0.331, CI [−0.93, +1.55] | +0.790, CI [−0.16, +1.65] | inconclusive |
+
+The sign is unstable across studies and every registered 95% CI spans zero. Both
+study analyses were fixed in advance and neither study was re-analysed after the
+fact. The honest conclusion is that **no advantage for diversity methods is
+established on this task**, and that the exploratory pilot's positive direction was
+noise. See `reports/H1_powered_analysis.md` and `reports/H1_paired_v2_analysis.md`.
 
 ## Falsification
 

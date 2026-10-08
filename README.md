@@ -73,6 +73,14 @@ registered statistical analysis (both generated from the store, no hand-entered 
 .venv/bin/python scripts/analyze.py      --store runs --experiment <id> --out research/reports/H1_powered_analysis.md
 ```
 
+Study v2 repeats this with a **paired** primary design and fresh seeds
+(`configs/pilot_paired_v2.json`, `research/protocols/paired_v2.md`):
+
+```bash
+.venv/bin/origin-run --config configs/pilot_paired_v2.json --store runs --jobs 8
+.venv/bin/python scripts/analyze.py --store runs --experiment <id> --design paired --out research/reports/H1_paired_v2_analysis.md
+```
+
 The analysis (`research/protocols/powered_replication.md`) is fixed in advance:
 a bootstrap 95% CI on the difference in means plus a two-sided Mann–Whitney U.
 No other test is run and the conclusion is not switched to a more favourable statistic.

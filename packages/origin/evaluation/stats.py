@@ -66,3 +66,51 @@ def mann_whitney(a: list[float] | np.ndarray, b: list[float] | np.ndarray) -> tu
 
     res = mannwhitneyu(np.asarray(a, dtype=float), np.asarray(b, dtype=float), alternative="two-sided")
     return float(res.statistic), float(res.pvalue)
+
+
+def paired_bootstrap_ci(
+    a: list[float] | np.ndarray,
+    b: list[float] | np.ndarray,
+    resamples: int = DEFAULT_RESAMPLES,
+    seed: int = DEFAULT_SEED,
+) -> DiffResult:
+    """Percentile bootstrap CI for the mean *paired* difference ``mean(a - b)``.
+
+    Unlike :func:`bootstrap_diff_ci`, resampling is over the paired differences
+    themselves, which preserves the correlation induced by common random numbers
+    (all methods share identical training environments) and is the pre-registered
+    primary analysis of study v2. Samples must be aligned and equal length.
+    """
+    a_arr = np.asarray(a, dtype=float)
+    b_arr = np.asarray(b, dtype=float)
+    if a_arr.size != b_arr.size:
+        raise ValueError("paired samples must have equal length (align by seed)")
+    if a_arr.size == 0:
+        raise ValueError("samples must be non-empty")
+    d = a_arr - b_arr
+    rng = np.random.default_rng(seed)
+    n = d.size
+    means = np.empty(int(resamples), dtype=float)
+    for i in range(int(resamples)):
+        means[i] = d[rng.integers(0, n, n)].mean()
+    lo, hi = np.percentile(means, [2.5, 97.5])
+    return DiffResult(point=float(d.mean()), lo=float(lo), hi=float(hi), n_a=n, n_b=n)
+
+
+def wilcoxon_signed_rank(a: list[float] | np.ndarray, b: list[float] | np.ndarray) -> tuple[float, float]:
+    """Two-sided Wilcoxon signed-rank test on paired samples; returns (statistic, p).
+
+    All-zero differences carry no information and are dropped by scipy; that case
+    is reported as p = 1.0 rather than raising.
+    """
+    from scipy.stats import wilcoxon
+
+    a_arr = np.asarray(a, dtype=float)
+    b_arr = np.asarray(b, dtype=float)
+    if a_arr.size != b_arr.size:
+        raise ValueError("paired samples must have equal length")
+    d = a_arr - b_arr
+    if np.allclose(d, 0.0):
+        return 0.0, 1.0
+    res = wilcoxon(a_arr, b_arr, alternative="two-sided")
+    return float(res.statistic), float(res.pvalue)

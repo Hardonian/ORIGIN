@@ -16,7 +16,7 @@
 | 5 | Experiment orchestration | **done** | `origin.experiments.runner` + `store`; manifests, resume, cancellation, bounded concurrency, CSV/Parquet |
 | 6 | Research lab UI | **done** | 7 screens build; 6 headless-Chromium E2E tests verify live-data rendering |
 | 7 | Local compute distribution | **partial** | CPU-first; `--jobs` concurrency; `scripts/origin_remote_worker.sh` ready. The EPYC tailnode is **offline** (see Blockers) |
-| 8 | First research campaign | **done** | Pilot 30/30 + pre-registered powered replication 60/60 trials, 0 failures. **H1 inconclusive at n=10** — the pilot's positive direction did not replicate; registered interval analysis in `research/reports/H1_powered_analysis.md` |
+| 8 | First research campaign | **done** | Pilot 30/30 + study 1 (independent, 60/60) + study v2 (paired, 60/60) — all 0 failures. **H1 not established**: every registered 95% CI spans zero; the exploratory positive direction did not replicate. Analyses fixed in advance, neither study re-analysed |
 
 ## Verified features
 
@@ -32,7 +32,7 @@
 
 ```
 $ .venv/bin/python -m pytest tests -q
-64 passed, 6 skipped        # skipped = browser E2E (opt-in)
+71 passed, 6 skipped        # skipped = browser E2E (opt-in)
 
 $ .venv/bin/ruff check packages tests scripts benchmarks
 All checks passed!
@@ -52,9 +52,9 @@ $ scripts/e2e_lab.sh                    # real headless browser against live API
 $ .venv/bin/origin-run --config configs/pilot_powered.json --store runs --jobs 8
 60 trials run, 0 failed
 
-$ .venv/bin/python scripts/analyze.py --store runs --experiment d0ef7208a010
-novelty_search - fixed_objective_ga: -0.228, 95% CI [-1.427, +0.998] -> inconclusive
-map_elites     - fixed_objective_ga: -0.038, 95% CI [-0.972, +0.965] -> inconclusive
+$ .venv/bin/python scripts/analyze.py --store runs --experiment c7363fb00344 --design paired
+novelty_search - fixed_objective_ga: +0.331, 95% paired CI [-0.932, +1.549], p=0.557 -> inconclusive
+map_elites     - fixed_objective_ga: +0.790, 95% paired CI [-0.161, +1.645], p=0.203 -> inconclusive
 
 $ scripts/origin_remote_worker.sh --check
 ERROR: epyc is not reachable over SSH.   (expected: node offline — see Blockers)
@@ -124,6 +124,8 @@ uv venv --python 3.12 .venv && uv pip install -e '.[dev]' --python .venv/bin/pyt
 
 ## Next executable action
 
-Run the powered H1 replication: increase `seeds` and `budget` in
-`configs/pilot.json`, add a descriptor-designed task where quality-diversity can
-express its advantage, and pre-register the analysis before running.
+Design a task where quality-diversity can genuinely express an advantage — the
+current foraging world is a single-niche objective, which is the most likely reason
+no diversity effect appears. Pre-register the task and analysis *before* running,
+and increase seeds further; study v2's paired CI for MAP-Elites ([−0.16, +1.65]) is
+the closest anything has come to excluding zero, so that is the thread to pull next.

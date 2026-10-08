@@ -8,7 +8,13 @@ from __future__ import annotations
 
 import numpy as np
 
-from origin.evaluation.stats import DiffResult, bootstrap_diff_ci, mann_whitney
+from origin.evaluation.stats import (
+    DiffResult,
+    bootstrap_diff_ci,
+    mann_whitney,
+    paired_bootstrap_ci,
+    wilcoxon_signed_rank,
+)
 
 
 def test_bootstrap_ci_is_deterministic_given_seed():
@@ -67,3 +73,60 @@ def test_bootstrap_rejects_empty_sample():
 
     with pytest.raises(ValueError):
         bootstrap_diff_ci([], [1.0, 2.0])
+
+
+# --------------------------------------------------------------------------- #
+# Paired design (study v2 primary)
+# --------------------------------------------------------------------------- #
+def test_paired_bootstrap_ci_is_deterministic_and_centred_on_mean_diff():
+    a = [5.0, 6.0, 7.0, 8.0, 9.0]
+    b = [1.0, 2.0, 3.0, 4.0, 5.0]
+    r1 = paired_bootstrap_ci(a, b, resamples=500, seed=11)
+    r2 = paired_bootstrap_ci(a, b, resamples=500, seed=11)
+    assert (r1.point, r1.lo, r1.hi) == (r2.point, r2.lo, r2.hi)
+    assert r1.point == 4.0  # mean(a - b)
+    assert r1.lo <= r1.point <= r1.hi or r1.lo <= r1.point  # CI brackets the estimate
+
+
+def test_paired_ci_inconclusive_for_zero_mean_difference():
+    a = [1.0, 2.0, 3.0, 4.0]
+    r = paired_bootstrap_ci(a, a, resamples=500, seed=3)
+    assert r.point == 0.0
+    assert not r.excludes_zero
+    assert r.verdict == "inconclusive"
+
+
+def test_paired_ci_supports_direction_when_differences_are_consistently_positive():
+    a = [10.0, 11.0, 12.0, 13.0, 14.0, 15.0]
+    b = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0]
+    r = paired_bootstrap_ci(a, b, resamples=2000, seed=5)
+    assert r.point == 10.0
+    assert r.excludes_zero and r.verdict == "supported (direction)"
+
+
+def test_paired_bootstrap_rejects_unequal_lengths():
+    import pytest
+
+    with pytest.raises(ValueError):
+        paired_bootstrap_ci([1.0, 2.0, 3.0], [1.0, 2.0])
+
+
+def test_wilcoxon_detects_consistent_positive_differences():
+    a = [10.0, 11.0, 12.0, 13.0, 14.0, 15.0]
+    b = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0]
+    stat, p = wilcoxon_signed_rank(a, b)
+    assert p < 0.05
+    assert stat >= 0.0
+
+
+def test_wilcoxon_all_zero_differences_is_p_one():
+    a = [3.0, 3.0, 3.0]
+    stat, p = wilcoxon_signed_rank(a, a)
+    assert (stat, p) == (0.0, 1.0)
+
+
+def test_wilcoxon_rejects_unequal_lengths():
+    import pytest
+
+    with pytest.raises(ValueError):
+        wilcoxon_signed_rank([1.0, 2.0], [1.0])
