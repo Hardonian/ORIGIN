@@ -143,20 +143,25 @@ def test_benchmark_renders_transfer_matrix(page):
     assert variants, "no transfer variants recorded"
 
     _goto(page, "/benchmark")
-    body = _wait_for_text(page, "Held-out performance")
+    # wait for data-derived content, not the static heading: the page renders
+    # an empty state before its fetch resolves.
+    body = _wait_for_text(page, sorted(variants)[0])
+    assert "Held-out performance" in body
     assert "Transfer" in body
     for v in sorted(variants):
         assert v in body, f"transfer variant {v} missing from the matrix"
 
 
 def test_failure_inspector_reports_state(page):
-    _goto(page, "/failures")
-    body = _wait_for_text(page, "Failure inspector")
     failures = _api("/api/failures")
+    _goto(page, "/failures")
     if failures:
-        assert failures[0]["algorithm"] in body
+        body = _wait_for_text(page, failures[0]["algorithm"])
+        assert failures[0]["id"] in body or failures[0]["algorithm"] in body
     else:
-        assert "No failed trials" in body
+        # the empty state only appears once the fetch has resolved
+        body = _wait_for_text(page, "No failed trials")
+    assert "Failure inspector" in body
 
 
 def test_artifacts_page_lists_generated_files(page):
@@ -166,16 +171,18 @@ def test_artifacts_page_lists_generated_files(page):
     assert arts, "no artifacts registered"
 
     _goto(page, "/artifacts")
-    body = _wait_for_text(page, "Research artifacts")
-    kinds = {a["kind"] for a in arts}
-    for k in kinds:
+    # wait for a real artifact row to render, not the static heading
+    body = _wait_for_text(page, arts[0]["kind"])
+    assert "Research artifacts" in body
+    for k in {a["kind"] for a in arts}:
         assert k in body, f"artifact kind {k} missing"
+    assert "No artifacts registered yet." not in body
 
 
 def test_designer_loads_validated_protocols(page):
     _goto(page, "/designer")
-    body = _wait_for_text(page, "Experiment designer")
     protocols = _api("/api/protocols")
     assert protocols, "no protocols exposed"
-    assert protocols[0]["name"] in body
+    body = _wait_for_text(page, protocols[0]["name"])
+    assert "Experiment designer" in body
     assert page.locator("textarea").input_value().strip().startswith("{")
