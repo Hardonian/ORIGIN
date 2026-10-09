@@ -30,15 +30,26 @@ fixed-objective evolution on held-out and transfer metrics.
 
 ## Status
 
-**NOT ESTABLISHED across four studies; the null is BOUNDED.**
+**Task-specific evidence; no universal diversity claim.**
 
-Study v3 is decisive for the feasible comparison. It was power-sized before running
-(n=40, from a power analysis on study v2 giving a requirement of 31.5) and scoped to
-MAP-Elites vs fixed-objective GA because the same analysis showed `novelty_search`
-would need n ≈ 321. At n=40 the design could detect a paired effect of ≥ 0.708 at
-80% power; the observed paired difference was **−0.221** (95% CI [−0.72, +0.26]).
-The v2 hint of +0.790 did not replicate.
+The earlier single-niche v3 study remains a legacy bounded-null observation: it
+was power-sized at n=40 and found MAP-Elites − GA = −0.221 (95% CI [−0.72,
++0.26]), so it did not replicate the preceding v2 hint. It does not invalidate
+or supersede later strict-cap registrations with a different fixed endpoint and
+accounting rule.
 
-Bounded conclusion: on this task **any MAP-Elites advantage is smaller than ≈0.71
-reward units**, and no advantage for novelty search is claimed in either direction.
-See `../../reports/H1_v3_decisive_analysis.md`.
+The authoritative current results are separated in
+`research/reports/RESULT_PROVENANCE.md`:
+
+* **Single-niche strict-cap v4:** MAP-Elites − GA = +0.679, 95% paired CI
+  [+0.112, +1.241], n=40; supported for that registered held-out base-task
+  endpoint only.
+* **Multi-niche strict-cap v3:** MAP-Elites − GA = +0.418, 95% paired CI
+  [+0.057, +0.778], n=64, on the registered aggregate adaptation-under-shock
+  endpoint; supported for that task only.
+* **Embodied H2 v3:** calibrated locomotion, morphology cost, and adaptation
+  recovery were measured, but the n=5 MAP-Elites-versus-GA primary comparison
+  is statistically inconclusive.
+
+No result establishes an advantage for novelty search generally, or licenses a
+claim beyond the registered task, body, endpoint, and budget.

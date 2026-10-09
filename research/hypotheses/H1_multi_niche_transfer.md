@@ -25,8 +25,24 @@ In an ecology with multiple competing resource types:
   * Held-out base test reward.
   * Zero-shot transfer reward across niche variants.
   * Adapted transfer reward and adaptation gain ($\Delta = \text{adapted} - \text{zero\_shot}$).
-* **Controls**: Equal interaction budget (25,000 interactions/seed); identical training environments (`train_seeds = [11, 22, 33, 44]`); paired random seeds (`[1, 2, 3, 4, 5]`).
+* **Controls**: Equal interaction budget; identical training environments;
+  paired method seeds. The five-seed values were the original pilot; the
+  strict-cap replication's fixed values are in
+  `research/protocols/multi_niche_replication_v3.md`.
 
 ## Falsification Criterion
 
-H1.MN is falsified if `map_elites` achieves equal or lower transfer reward than `fixed_objective_ga` across the pre-registered transfer shocks, or if the paired bootstrap 95% confidence interval spans zero in favor of no advantage.
+H1.MN is falsified for its registered task if the paired effect is negative and
+the paired bootstrap 95% confidence interval excludes zero. An interval spanning
+zero is inconclusive, not evidence of equivalence.
+
+## Current registered result
+
+The historical five-seed values above describe the original pilot design only.
+The authoritative strict-cap replication is
+`research/protocols/multi_niche_replication_v3.md`: 64 paired method seeds,
+25,000 training interactions per learned-method seed, and one primary endpoint
+per seed (mean adapted held-out reward over the five fixed shocks). MAP-Elites
+minus GA was +0.418 with 95% paired CI [+0.057, +0.778] and Wilcoxon p=0.0305.
+It supports H1.MN for that registered multi-niche endpoint, not a general claim
+about all task families. See `research/reports/RESULT_PROVENANCE.md`.

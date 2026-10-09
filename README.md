@@ -34,17 +34,17 @@ Initial hypothesis (to be *tested*, not assumed):
 | Evolution (fixed-objective GA, novelty search, MAP-Elites) | `origin.evolution` | working |
 | Learning (REINFORCE + PPO RL baselines) | `origin.learning` | implementations working; PPO v1 is exploratory pending its corrected v2 study |
 | Evaluation (train/test isolation, morphology transfer) | `origin.evaluation` | working |
-| Embodied evaluation + transfer | `origin.evaluation.embodied` | instrumentation verified; **M4 results retracted** (2026-10-08) |
+| Embodied evaluation + transfer | `origin.evaluation.embodied` | calibrated v3 campaign complete; historical v2 results remain retracted |
 | Experiment runner + store (SQLite/Parquet/CSV) | `origin.experiments` | working |
 | Telemetry | `origin.telemetry` | working |
 | Visualization (plots) | `origin.visualization` | working |
 | Research lab UI | `apps/lab` | see status ledger |
 
 The same optimizers drive both simulators; `env_kind` selects `gridworld` or
-`embodied`. See `docs/ARCHITECTURE.md`. For the embodied results and their
-retraction (2026-10-08), see
-`research/reports/ORIGIN_M4_Embodied_Transfer_Report.md` and
-`IMPLEMENTATION_STATUS.md`.
+`embodied`. See `docs/ARCHITECTURE.md`. The historical v2 embodied report is
+retracted in `research/reports/ORIGIN_M4_Embodied_Transfer_Report.md`; its
+calibrated v3 replacement is
+`research/reports/ORIGIN_M4_Embodied_Transfer_Report_v3.md`.
 
 ## Quickstart
 

@@ -216,17 +216,14 @@ ERROR: epyc is not reachable over SSH.   (expected: node offline — see Blocker
 
 ## Known defects / limitations
 
-* **The retired v2 morphology does not locomote; the replacement is unverified.**
-  The old isotropic, vertical-plane torque chain failed the 2026-10-08 probe.
-  The replacement uses yaw joints, direction-dependent contact and force-limited
-  position motors, with a probe that fails unless a production gait gains 5 cm in
-  3 s. That acceptance run must complete on a supported PyBullet host before any
-  embodied result is reported.
-* **All M4 embodied results are retracted** (2026-10-08): the body was not the
-  body the report described, the fall metric was wrap-broken, and adaptation
-  gains were measured in-sample. See the correction at the top of
-  `research/reports/ORIGIN_M4_Embodied_Transfer_Report.md`. The pre-registered
-  H2 is **untested** until re-run on a working morphology.
+* **Historical M4 v2 results are retracted** (2026-10-08): the old isotropic,
+  vertical-plane chain was not the described body, its fall metric was
+  wrap-broken, and its adaptation gains were in-sample. The correction remains
+  at `research/reports/ORIGIN_M4_Embodied_Transfer_Report.md`.
+* **The replacement is calibrated and has a separate v3 result.** The
+  yaw-jointed crawler, anisotropic contact, and force-limited motors passed the
+  fail-closed probe before the v3 campaign. `1bdb4b622748` is the authoritative
+  calibrated H2 study; see `research/reports/ORIGIN_M4_Embodied_Transfer_Report_v3.md`.
 * **Adaptation-gain numbers produced before 2026-10-08 are in-sample** (the
   transfer paths fine-tuned on `test_seeds[:2]` and scored on the same seeds).
   The code is fixed and guarded by tests; any old "adaptation gain" quoted
@@ -259,15 +256,17 @@ ERROR: epyc is not reachable over SSH.   (expected: node offline — see Blocker
 * **The scripted heuristic is privileged** (global BFS) and is a reference, not a
   like-for-like competitor. The embodied `scripted_gait` is open-loop and cannot
   adapt at all by construction.
-* **Physical replay remains grid-only.** `/api/world` now *degrades gracefully*
-  (structured 400 naming the reason) for embodied experiments instead of
-  crashing with a 500. The lab now also exposes a static persisted body-plan
-  schematic at `/api/morphology`; it is explicitly labelled as not being a
-  physics replay and shows the calibration gate. Its 3-D canvas is kinematic
-  inspection, not sampled physics; a 3-D physics replay is not built. Covered by
-  the API smoke test and browser E2E suite.
-* Grid pilots use ≤5 seeds per study tier (v3 uses 40 paired seeds). Embodied
-  sample sizes are moot until the morphology works.
+* **Embodied replay is evidence-gated.** `/api/world` continues to reject an
+  embodied request rather than fabricate a grid replay. `/api/morphology`
+  exposes a labelled schematic when no trajectory artifact exists; when a
+  `<trial>.trajectory.json` artifact is present, the lab plays its recorded
+  PyBullet kinematics and labels it as a physics replay. The API smoke and
+  browser E2E suites assert both cases.
+* **Inference remains scoped by study.** The single-niche v4 and multi-niche v3
+  primary endpoints have 40 and 64 paired seeds, respectively. Embodied v3
+  establishes calibrated locomotion and transfer measurements, but its n=5
+  MAP-Elites-versus-GA comparison is not statistically resolved; it is not a
+  general superiority claim.
 
 ## Blockers
 
@@ -285,7 +284,10 @@ All nine milestones (0 through 8) are **fully completed and verified**:
    - Single-Niche Grid World v4 (`59427f9116fa`, 160/160 trials): H1-ME confirmed (+0.679, $p=0.0381$).
    - Multi-Niche Grid World v3 (`1e8559d6de45`, 256/256 trials): H1.MN confirmed (+0.418, $p=0.0305$).
    - Embodied Morphology Transfer v3 (`1bdb4b622748`, 25/25 trials): H2 confirmed on calibrated physics.
-4. **Future extensions (optional):** REINFORCE actor-critic successor if RL remains a focus; 3-D physics trajectory replay persistence.
+4. **Future extensions (optional):** Execute the separately registered PPO v2
+   grid and embodied studies; broaden independent replications to new task and
+   morphology families; persist representative recorded physics trajectories for
+   each future embodied campaign.
 
 ## Reproduction commands
 
