@@ -156,8 +156,10 @@ def main() -> int:
         f"{len(seeds)} paired method seeds · budget {int(cfg['budget']):,} interactions/method/seed."
     )
     add("")
-    add(f"Analysis fixed in advance at `{args.protocol_doc}`. The endpoint is each seed's arithmetic mean `")
-    add(f"of `{args.endpoint}` over the five registered niche shocks; shocks are **not** independent samples.")
+    add(
+        f"Analysis fixed in advance at `{args.protocol_doc}`. The endpoint is each seed's arithmetic "
+        f"mean of `{args.endpoint}` over the five registered niche shocks; shocks are **not** independent samples."
+    )
     add("")
     add("## Endpoint completeness")
     add("")

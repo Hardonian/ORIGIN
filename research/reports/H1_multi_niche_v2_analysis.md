@@ -2,8 +2,7 @@
 
 Experiment `5058bcacd3de` · protocol `multi_niche_transfer_v2_H1MN` · 64 paired method seeds · budget 25,000 interactions/method/seed.
 
-Analysis fixed in advance at `research/protocols/multi_niche_replication_v2.md`. The endpoint is each seed's arithmetic mean `
-of `adapted_mean_reward` over the five registered niche shocks; shocks are **not** independent samples.
+Analysis fixed in advance at `research/protocols/multi_niche_replication_v2.md`. The endpoint is each seed's arithmetic mean of `adapted_mean_reward` over the five registered niche shocks; shocks are **not** independent samples.
 
 ## Endpoint completeness
 
