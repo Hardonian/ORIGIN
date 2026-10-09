@@ -5,6 +5,31 @@ export const API_BASE =
   process.env.NEXT_PUBLIC_ORIGIN_API || "http://127.0.0.1:8788";
 
 const AUTH_STORAGE_KEY = "origin_api_key";
+const API_TIMEOUT_MS = 15_000;
+
+/** Structured request failure used by views that need to distinguish auth,
+ * server, and connectivity failures without parsing an error string. */
+export class ApiError extends Error {
+  readonly status: number | null;
+  readonly path: string;
+  readonly detail: unknown;
+
+  constructor(path: string, status: number | null, detail: unknown, message: string) {
+    super(message);
+    this.name = "ApiError";
+    this.path = path;
+    this.status = status;
+    this.detail = detail;
+  }
+
+  get isUnauthorized(): boolean {
+    return this.status === 401 || this.status === 403;
+  }
+
+  get isConnectivityFailure(): boolean {
+    return this.status === null;
+  }
+}
 
 export function getAuthToken(): string {
   if (typeof window !== "undefined") {
@@ -30,37 +55,47 @@ function authHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-export async function apiGet<T>(path: string): Promise<T> {
-  const headers = authHeaders();
-  const res = await fetch(`${API_BASE}${path}`, {
-    cache: "no-store",
-    headers,
-  });
-  if (!res.ok) {
-    let detail = "";
-    try {
-      detail = JSON.stringify(await res.json());
-    } catch {
-      /* ignore */
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      cache: "no-store",
+      ...init,
+      headers: {
+        ...authHeaders(),
+        ...init.headers,
+      },
+      signal: init.signal ?? controller.signal,
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      throw new ApiError(path, res.status, data, `API ${path} -> ${res.status} ${JSON.stringify(data ?? {})}`);
     }
-    throw new Error(`API ${path} -> ${res.status} ${detail}`);
+    return data as T;
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    const timedOut = error instanceof DOMException && error.name === "AbortError";
+    const message = timedOut
+      ? `API ${path} timed out after ${API_TIMEOUT_MS / 1000}s`
+      : `API ${path} is unreachable`;
+    throw new ApiError(path, null, error, message);
+  } finally {
+    clearTimeout(timeout);
   }
-  return (await res.json()) as T;
+}
+
+export async function apiGet<T>(path: string): Promise<T> {
+  return request<T>(path);
 }
 
 export async function apiPost<T>(path: string, body: unknown): Promise<T> {
-  const headers = {
-    "Content-Type": "application/json",
-    ...authHeaders(),
-  };
-  const res = await fetch(`${API_BASE}${path}`, {
+  return request<T>(path, {
     method: "POST",
-    headers,
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(`API ${path} -> ${res.status} ${JSON.stringify(data)}`);
-  return data as T;
 }
 
 export function getExportUrl(experimentId?: string, format: "csv" | "json" = "csv"): string {
