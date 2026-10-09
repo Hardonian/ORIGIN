@@ -1,0 +1,37 @@
+{
+  "name": "multi_niche_transfer_replication_v2",
+  "protocol": "multi_niche_transfer_v2_H1MN",
+  "description": "Pre-registered, paired replication of H1.MN (research/protocols/multi_niche_replication_v2.md). The sole confirmatory endpoint is the per-seed mean held-out adapted transfer reward across the five registered ecological shocks; its exact aggregation and decision rule are fixed before the run.",
+  "env": {
+    "height": 10,
+    "width": 10,
+    "max_steps": 120,
+    "terrain": "random",
+    "obstacle_density": 0.04,
+    "n_resources": 4,
+    "resource_reward": 1.0,
+    "resource_energy": 20.0,
+    "n_resources_b": 4,
+    "resource_b_reward": 2.5,
+    "resource_b_energy": 15.0,
+    "n_hazards": 2,
+    "hazard_penalty": 0.5,
+    "hazard_energy_drain": 10.0,
+    "obs_mode": "multi_niche",
+    "niche_distribution": "zones",
+    "energy_start": 100.0,
+    "energy_capacity": 100.0,
+    "energy_step": 0.1,
+    "seed": 0
+  },
+  "train_seeds": [11, 22, 33, 44],
+  "test_seeds": [101, 202, 303, 404],
+  "budget": 25000,
+  "seeds": [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69],
+  "include_baselines": ["random", "heuristic"],
+  "transfer": {"adapt": true, "budget": 5000},
+  "algorithms": {
+    "fixed_objective_ga": {"pop_size": 24, "mutation_rate": 0.3, "mutation_scale": 0.5, "morph_strength": 0.3},
+    "map_elites": {"batch": 12, "grid_shape": [8, 8], "mutation_rate": 0.3, "mutation_scale": 0.5, "morph_strength": 0.3}
+  }
+}

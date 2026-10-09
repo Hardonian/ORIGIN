@@ -50,6 +50,7 @@ def main() -> int:
     exp = next((e for e in exps if e["id"] == args.experiment), exps[0])
     exp_id = exp["id"]
     cfg = json.loads(exp["config_json"])
+    is_multi_niche = int(cfg.get("env", {}).get("n_resources_b", 0)) > 0
     manifest_path = Path(args.store) / exp_id / "manifest.json"
     manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
 
@@ -182,8 +183,13 @@ def main() -> int:
     a("")
     analysis_file = args.analysis_file or ("H1_paired_v2_analysis.md" if args.design == "paired" else "H1_powered_analysis.md")
     boot_seed = args.bootstrap_seed if args.bootstrap_seed is not None else (20261009 if args.design == "paired" else 20261008)
-    a(f"**Author:** Scott Hardie (Hardonian) · **Status:** {len(cfg.get('seeds', []))} seeds; "
-      f"interval-based registered analysis in `research/reports/{analysis_file}`. Not peer reviewed.")
+    if is_multi_niche:
+        a(f"**Author:** Scott Hardie (Hardonian) · **Status:** {len(cfg.get('seeds', []))} seeds; "
+          "this generated report is descriptive. Ecological-transfer inference must be generated "
+          "separately by `scripts/analyze_multi_niche.py` using a pre-registered endpoint. Not peer reviewed.")
+    else:
+        a(f"**Author:** Scott Hardie (Hardonian) · **Status:** {len(cfg.get('seeds', []))} seeds; "
+          f"interval-based registered analysis in `research/reports/{analysis_file}`. Not peer reviewed.")
     a("")
     a("> This report was generated automatically from the stored experiment artifacts by")
     a("> `scripts/make_report.py`. Every figure below is read from the experiment store; no")
@@ -221,7 +227,7 @@ def main() -> int:
     ga = by_algo.get("fixed_objective_ga", {}).get("test", [])
     nov = by_algo.get("novelty_search", {}).get("test", [])
     qd = by_algo.get("map_elites", {}).get("test", [])
-    if ga and (nov or qd):
+    if ga and (nov or qd) and not is_multi_niche:
         from origin.evaluation.stats import bootstrap_diff_ci, paired_bootstrap_ci
 
         paired = args.design == "paired"
@@ -247,6 +253,13 @@ def main() -> int:
         a("  estimates. Where the 95% CI spans zero the result is reported as **inconclusive**,")
         a("  not as a near-miss. Full analysis of this run:")
         a(f"  `research/reports/{analysis_file}`; earlier studies are in the same directory.")
+        a("")
+    elif ga and qd and is_multi_niche:
+        a("### Unperturbed base-task context (not ecological-transfer analysis)")
+        a("")
+        a("The following held-out table is descriptive only. It cannot decide a multi-niche transfer")
+        a("hypothesis because that requires an explicitly fixed aggregation across the registered shocks.")
+        a("Use `scripts/analyze_multi_niche.py` for a complete, fail-closed transfer analysis.")
         a("")
 
     a("## 4. Cross-morphology and perturbation transfer")
@@ -294,6 +307,9 @@ def main() -> int:
     a("## 7. Limitations")
     a("")
     a(f"* **PRELIMINARY.** {len(cfg['seeds'])} seeds per method; confidence intervals are wide and no null-hypothesis test is powered.")
+    if is_multi_niche:
+        a("* The automatic base-task report intentionally does not supply a primary transfer verdict;")
+        a("  shocks are repeated measurements within a method seed and require the dedicated analysis.")
     a("* A reactive controller is a low-ceiling policy class on tasks requiring planning; this")
     a("  bounds achievable effect sizes and compresses between-method differences.")
     a("* Single task family. No claim about generality beyond this world.")
@@ -307,8 +323,12 @@ def main() -> int:
     a("")
     a("```bash")
     a("uv venv --python 3.12 .venv && uv pip install -e '.[dev]' --python .venv/bin/python")
-    a(f".venv/bin/origin-run --config configs/{Path('configs/pilot.json').name} --store runs --jobs $(nproc)")
+    a("# use the exact pre-registered config for this experiment")
+    a(".venv/bin/origin-run --config <config.json> --store runs --jobs $(nproc)")
     a(f".venv/bin/python scripts/make_report.py --store runs --experiment {exp_id}")
+    if is_multi_niche:
+        a(".venv/bin/python scripts/analyze_multi_niche.py --store runs --experiment "
+          f"{exp_id} --bootstrap-seed <registered-seed> --protocol-doc <protocol.md> --out <analysis.md>")
     a("```")
     a("")
     a(f"Reference environment: Python {env.get('python', '?')}, {env.get('platform', '?')}, {env.get('cpu_count', '?')} CPUs.")
@@ -319,10 +339,14 @@ def main() -> int:
     a("")
     a("## 10. Next milestone")
     a("")
-    a("Pre-register a powered replication of H1: more seeds, larger budgets, and a")
-    a("descriptor-designed task where quality-diversity can express its advantage, plus an")
-    a("articulated-physics embodiment benchmark (Milestone 4) to test morphology transfer beyond")
-    a("sensor/actuator changes.")
+    if is_multi_niche:
+        a("Run the pre-registered paired replication and its dedicated transfer analysis; do not")
+        a("promote base-task or per-shock descriptive values to the primary result.")
+    else:
+        a("Pre-register a powered replication of H1: more seeds, larger budgets, and a")
+        a("descriptor-designed task where quality-diversity can express its advantage, plus an")
+        a("articulated-physics embodiment benchmark (Milestone 4) to test morphology transfer beyond")
+        a("sensor/actuator changes.")
     a("")
 
     out = Path(args.out)
