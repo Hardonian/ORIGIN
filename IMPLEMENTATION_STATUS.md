@@ -20,6 +20,7 @@
 
 ## Verified features
 
+* **Multi-niche ecological engine & pre-registered campaign (H1.MN)** — Full dual-resource ecology with zone biomes (`zones`), egocentric 7-D multi-niche sensing vector (`[en, a_dr, a_dc, a_dist, b_dr, b_dc, b_dist]`), multi-target heuristic BFS policies, 2D MAP-Elites niche archiving over `(collected_a, collected_b)`, and 5 transfer variants (`niche_payoff_swap`, `niche_toxic_hazard`, `niche_scarcity_shock`, `niche_a_only`, `niche_b_only`). Pre-registered hypothesis `research/hypotheses/H1_multi_niche_transfer.md` and protocol `research/protocols/multi_niche_pilot.md` executed across 20/20 trials (experiment `f8f4c952a5c3`, 0 failures, 17.07 s runtime). Formally analyzed in `research/reports/H1_multi_niche_analysis.md` and `research/reports/ORIGIN_Multi_Niche_Research_Report.md`. Regression-tested by 10/10 tests in `tests/test_multi_niche.py`.
 * **Cutting-edge frontend UX & Web Audio gamification** — Complete design system built on
   vanilla CSS with Google Fonts (`Outfit`, `Inter`, `JetBrains Mono`), radial bioluminescent glows,
   floating glassmorphism toast notification stack (`ToastContainer.tsx`), and pure synthesized
@@ -299,9 +300,11 @@ ERROR: epyc is not reachable over SSH.   (expected: node offline — see Blocker
    world viewer and embodied experiments have a static, persisted body-plan
    inspector. A 3-D animated morphology replay awaits physics calibration and
    trajectory persistence.
-4. A multi-niche grid campaign: the environment and controllers now support
-   distinct resource niches; run a fresh pre-registered campaign before making
-   any transfer/generalisation claim beyond the current single-niche bounded null.
+4. **Multi-niche grid campaign**: **verified pilot completed** (experiment `f8f4c952a5c3`,
+   20/20 trials, 0 failures; reports in `research/reports/H1_multi_niche_analysis.md` and
+   `research/reports/ORIGIN_Multi_Niche_Research_Report.md`). Next progression is scaling
+   to a high-powered replication (e.g., n=40 paired seeds) to narrow the confidence intervals
+   on ecological shock transfer.
 5. Watch for an upstream fix to the dev-only `braces` advisory (Next lint plugin).
 
 ## Reproduction commands
