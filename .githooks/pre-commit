@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# ORIGIN pre-commit guard.
+# Blocks the two failure modes that have broken CI:
+#   1) committed merge-conflict markers (Python/TS syntax errors)
+#   2) ruff lint errors in staged Python files
+# Bypass intentionally with: git commit --no-verify
+set -euo pipefail
+
+staged=$(git diff --cached --name-only --diff-filter=ACM || true)
+[ -z "$staged" ] && exit 0
+
+# --- 1) conflict markers in staged, text-like files -------------------------
+marker_hits=""
+while IFS= read -r f; do
+  [ -n "$f" ] || continue
+  [ -f "$f" ] || continue
+  case "$f" in
+    *.py|*.pyi|*.ts|*.tsx|*.js|*.jsx|*.mjs|*.cjs|*.json|*.yml|*.yaml|*.toml|*.md|*.cfg|*.ini) ;;
+    *) continue ;;
+  esac
+  if grep -nE '^(<<<<<<< |>>>>>>> )' -- "$f" >/dev/null 2>&1; then
+    marker_hits="${marker_hits}${f}"$'\n'
+  fi
+done <<< "$staged"
+
+if [ -n "$marker_hits" ]; then
+  echo "pre-commit: refusing to commit — unresolved merge-conflict markers in:" >&2
+  printf '%s' "$marker_hits" >&2
+  echo "Resolve them, then retry (or 'git commit --no-verify' to bypass)." >&2
+  exit 1
+fi
+
+# --- 2) ruff on staged Python files -----------------------------------------
+py_files=$(printf '%s\n' "$staged" | grep -E '\.pyi?$' || true)
+if [ -n "$py_files" ]; then
+  ruff_bin=""
+  for cand in .venv/bin/ruff "$(command -v ruff || true)"; do
+    if [ -n "$cand" ] && [ -x "$cand" ]; then ruff_bin="$cand"; break; fi
+  done
+  if [ -n "$ruff_bin" ]; then
+    if ! printf '%s\n' "$py_files" | xargs "$ruff_bin" check --force-exclude; then
+      echo "pre-commit: ruff found issues in staged Python — run '$ruff_bin check --fix' then re-add." >&2
+      exit 1
+    fi
+  else
+    echo "pre-commit: ruff not found (skipping lint check)." >&2
+  fi
+fi
+
+exit 0
