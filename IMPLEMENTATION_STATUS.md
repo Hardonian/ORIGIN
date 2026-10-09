@@ -96,15 +96,17 @@
   Asserted in `tests/test_api.py` and `tests/test_security.py`.
 * **System diagnostics & health tooling** — `origin-doctor` verifies platform specs,
   core dependencies, optional extensions (PyBullet, PyTorch, Playwright), SQLite store
-  consistency, API connectivity, and Lab UI production builds (`tests/test_doctor.py`).
+  consistency, API connectivity, Lab UI production builds, and fail-closed embodied
+  calibration evidence with a concrete next action (`tests/test_doctor.py`).
 * **Interactive 3D morphology viewer & cluster dashboard** — Lab UI features an
   interactive HTML5 Canvas 3D articulated crawler kinematics simulator with real-time
   gait undulation playback (`wave_a`, `wave_b`, `flex`, `extend`), a real-time
   Cluster & Workers monitor screen (`/workers`) with stale-worker reaping, live execution
   log console (`/designer`), and CSV exports (`/`, `/benchmark`).
 * **Cross-platform browser E2E test runner** — `scripts/run_e2e.py` provides pure-Python
-  orchestration across Windows, Linux, and macOS, starting backend & UI with clean
-  process lifecycle management, preflighting all 8 routes, and verifying live rendering.
+  orchestration across Windows, Linux, and macOS, compiling the selected API URL into the
+  Next bundle, checking the live UI/API contract, starting backend & UI with clean process
+  lifecycle management, preflighting all 8 routes, and verifying live rendering.
 * **Production deployment infrastructure** — Multi-stage `infra/Dockerfile`,
   `infra/docker-compose.yml`, systemd services (`infra/systemd/`), and cross-platform
   cluster orchestrator (`scripts/cluster_manager.py`).
@@ -112,8 +114,8 @@
 ## Latest successful tests (all re-run 2026-10-08)
 
 ```
-$ .venv/bin/python -m pytest tests
-107 passed, 7 skipped        # 114 collected; all unit/integration/api/doctor/security tests pass
+$ .venv/bin/python -m pytest tests -ra
+111 passed, 12 skipped       # 123 collected; 9 opt-in browser + 3 PyBullet skips are explicit
 $ .venv/bin/ruff check packages tests scripts benchmarks
 All checks passed!
 $ .venv/bin/mypy packages/origin
@@ -122,8 +124,8 @@ $ origin-doctor
 Platform, core dependencies, extensions, store, API, and Lab UI all validated
 $ cd apps/lab && npm run lint && npm run typecheck && npm run build
 ✔ No ESLint warnings or errors; typecheck clean; production build OK (8 static routes prerendered)
-$ node apps/lab/scripts/smoke-api.mjs   # UI↔API contract (API on :8788)
-18/18 checks passed          # capabilities, workers, experiments, protocols, details, world contracts verified
+$ node apps/lab/scripts/smoke-api.mjs   # UI/API contract (API on :8788)
+20/20 checks passed          # includes fail-closed calibration evidence contract
 $ .venv/bin/python scripts/run_e2e.py   # real headless browser against live API + UI
 8 passed, 1 skipped; all 8 routes HTTP 200
 $ .venv/bin/bandit -q -r packages/origin -ll
@@ -237,8 +239,9 @@ ERROR: epyc is not reachable over SSH.   (expected: node offline — see Blocker
   (structured 400 naming the reason) for embodied experiments instead of
   crashing with a 500. The lab now also exposes a static persisted body-plan
   schematic at `/api/morphology`; it is explicitly labelled as not being a
-  physics replay and shows the calibration gate. A 3-D animated morphology
-  replay is not built. Covered by the API smoke test and browser E2E suite.
+  physics replay and shows the calibration gate. Its 3-D canvas is kinematic
+  inspection, not sampled physics; a 3-D physics replay is not built. Covered by
+  the API smoke test and browser E2E suite.
 * Grid pilots use ≤5 seeds per study tier (v3 uses 40 paired seeds). Embodied
   sample sizes are moot until the morphology works.
 
@@ -280,7 +283,7 @@ ERROR: epyc is not reachable over SSH.   (expected: node offline — see Blocker
    (`tests/test_worker_model.py`, `scripts/probe_worker_recovery.py`). What
    remains is exactly one real multi-host campaign once the EPYC node is back
    (Blockers) — the remote path is the same mechanism over SSH.
-3. **Milestone 6 (UI)**: 7 screens E2E-tested; grid trajectories replay in the
+3. **Milestone 6 (UI)**: 8 screens E2E-tested; grid trajectories replay in the
    world viewer and embodied experiments have a static, persisted body-plan
    inspector. A 3-D animated morphology replay awaits physics calibration and
    trajectory persistence.
