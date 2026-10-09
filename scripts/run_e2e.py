@@ -87,7 +87,11 @@ def main() -> int:
     parser.add_argument("--api-port", type=int, default=8788)
     parser.add_argument("--ui-port", type=int, default=4317)
     parser.add_argument("--store", default="runs")
-    parser.add_argument("--skip-build", action="store_true", help="skip npm run build if already built")
+    parser.add_argument(
+        "--skip-build",
+        action="store_true",
+        help="reuse an existing build only when it was compiled for the selected API URL",
+    )
     parser.add_argument("--seed", action="store_true", help="force run smoke experiment before testing")
     args = parser.parse_args()
 
@@ -121,14 +125,26 @@ def main() -> int:
     # 2. Build UI if needed
     lab_dir = repo_root / "apps" / "lab"
     next_dist = lab_dir / ".next"
+    api_url = f"http://127.0.0.1:{api_port}"
+    api_marker = next_dist / "origin-api-url.txt"
     npm_cmd = "npm.cmd" if sys.platform == "win32" else "npm"
     npx_cmd = "npx.cmd" if sys.platform == "win32" else "npx"
-    if not args.skip_build or not next_dist.exists():
+    build_env = os.environ.copy()
+    # NEXT_PUBLIC variables are compiled into Next static output.  Passing this
+    # only to `next start` makes a dynamically selected API port look healthy
+    # while the browser continues calling the old port from a previous build.
+    build_env["NEXT_PUBLIC_ORIGIN_API"] = api_url
+    cached_api_url = api_marker.read_text(encoding="utf-8").strip() if api_marker.exists() else ""
+    reuse_build = args.skip_build and next_dist.exists() and cached_api_url == api_url
+    if not reuse_build:
         print("[e2e] Building Lab UI production bundle...")
-        b_res = subprocess.run([npm_cmd, "run", "build"], cwd=str(lab_dir))
+        b_res = subprocess.run([npm_cmd, "run", "build"], cwd=str(lab_dir), env=build_env)
         if b_res.returncode != 0:
             print("[e2e] UI build failed", file=sys.stderr)
             return b_res.returncode
+        api_marker.write_text(api_url + "\n", encoding="utf-8")
+    elif args.skip_build:
+        print(f"[e2e] Reusing UI build compiled for {api_url}")
 
     api_proc: subprocess.Popen | None = None
     ui_proc: subprocess.Popen | None = None
@@ -145,8 +161,7 @@ def main() -> int:
 
         # 4. Start Next.js Lab server
         print(f"[e2e] Starting Lab UI server on http://127.0.0.1:{ui_port}...")
-        env = os.environ.copy()
-        env["NEXT_PUBLIC_ORIGIN_API"] = f"http://127.0.0.1:{api_port}"
+        env = build_env
         ui_proc = subprocess.Popen(
             [npx_cmd, "next", "start", "-p", str(ui_port), "-H", "127.0.0.1"],
             cwd=str(lab_dir),
