@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { API_BASE, apiGet, ExperimentSummary, Trial } from "@/lib/api";
+import { API_BASE, apiGet, CalibrationEvidence, ExperimentSummary, Trial } from "@/lib/api";
 import MorphologyCanvas3D from "./MorphologyCanvas3D";
 
 interface WorldData {
@@ -73,6 +73,7 @@ export default function WorldPage() {
   const [seed, setSeed] = useState(101);
   const [world, setWorld] = useState<WorldData | null>(null);
   const [plan, setPlan] = useState<MorphologyPlan | null>(null);
+  const [evidence, setEvidence] = useState<CalibrationEvidence | null>(null);
   const [step, setStep] = useState(0);
   const [viewerTab, setViewerTab] = useState<"3d" | "2d">("3d");
   const [err, setErr] = useState<string | null>(null);
@@ -113,21 +114,26 @@ export default function WorldPage() {
   useEffect(() => {
     if (!expId || resolvedExpId !== expId || !trialId || !envKind) return;
     let cancelled = false;
-    const request =
-      envKind === "embodied"
-        ? apiGet<MorphologyPlan>(`/api/morphology?experiment=${expId}&trial=${trialId}`)
-        : apiGet<WorldData>(`/api/world?experiment=${expId}&trial=${trialId}&seed=${seed}`);
-    request
-      .then((data) => {
+    if (envKind === "embodied") {
+      Promise.all([
+        apiGet<MorphologyPlan>(`/api/morphology?experiment=${expId}&trial=${trialId}`),
+        apiGet<CalibrationEvidence>("/api/calibration"),
+      ])
+        .then(([bodyPlan, calibrationEvidence]) => {
+          if (cancelled) return;
+          setPlan(bodyPlan);
+          setEvidence(calibrationEvidence);
+        })
+        .catch((e) => !cancelled && setErr(String(e)));
+    } else {
+      apiGet<WorldData>(`/api/world?experiment=${expId}&trial=${trialId}&seed=${seed}`)
+        .then((data) => {
         if (cancelled) return;
-        if (envKind === "embodied") {
-          setPlan(data as MorphologyPlan);
-        } else {
-          setWorld(data as WorldData);
+          setWorld(data);
           setStep(0);
-        }
-      })
-      .catch((e) => !cancelled && setErr(String(e)));
+        })
+        .catch((e) => !cancelled && setErr(String(e)));
+    }
     return () => {
       cancelled = true;
     };
@@ -320,6 +326,19 @@ export default function WorldPage() {
             <strong>Calibration gate · {plan.calibration.status}</strong>
             <p>{plan.calibration.acceptance}</p>
             <code>{plan.calibration.command}</code>
+          </div>
+          <div className="calibration-callout" style={{ marginTop: 10 }}>
+            <strong>Latest captured evidence · {evidence?.status ?? "checking"}</strong>
+            {evidence?.available ? (
+              <p>
+                {evidence.message}
+                {evidence.acceptance?.best_forward_gain_m !== null && evidence.acceptance?.best_forward_gain_m !== undefined
+                  ? ` Best gain: ${evidence.acceptance.best_forward_gain_m.toFixed(3)} m.`
+                  : ""}
+              </p>
+            ) : (
+              <p>{evidence?.message ?? "Checking the persisted calibration artifact…"}</p>
+            )}
           </div>
           {plan.organism_morphology && (
             <p className="muted" style={{ marginTop: 12 }}>

@@ -18,6 +18,10 @@ const caps = await get("/api/capabilities");
 ok("capabilities returns status ready", caps.status === "ready");
 ok("capabilities exposes simulators", Array.isArray(caps.simulators));
 
+const calibration = await get("/api/calibration");
+ok("calibration exposes a status", typeof calibration.status === "string");
+ok("calibration never implies a pass without valid evidence", !calibration.passed || calibration.valid === true);
+
 const workers = await get("/api/workers");
 ok("workers report exposes workers array", Array.isArray(workers.workers));
 ok("workers report exposes trial_counts", typeof workers.trial_counts === "object");

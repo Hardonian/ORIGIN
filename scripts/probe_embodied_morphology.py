@@ -126,6 +126,7 @@ def unavailable_report(cfg: EmbodiedConfig) -> dict[str, Any]:
     return {
         "status": "unavailable",
         "passed": False,
+        "config_hash": cfg.config_hash(),
         "reason": "PyBullet is not importable in this environment.",
         "config": cfg.to_dict(),
         "acceptance": {
@@ -158,6 +159,7 @@ def main(argv: list[str] | None = None) -> int:
     report = {
         "status": "passed" if passed else "failed",
         "passed": passed,
+        "config_hash": cfg.config_hash(),
         "config": cfg.to_dict(),
         "acceptance": {
             "minimum_forward_gain_m": ACCEPTANCE_GAIN_M,

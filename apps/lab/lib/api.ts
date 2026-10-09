@@ -114,6 +114,24 @@ export interface SystemCapabilities {
   store: string;
 }
 
+export interface CalibrationEvidence {
+  available: boolean;
+  valid: boolean;
+  status: "not_run" | "unavailable" | "failed" | "passed" | "invalid";
+  passed: boolean;
+  file: string;
+  message: string;
+  command?: string;
+  config_hash?: string | null;
+  acceptance?: {
+    minimum_forward_gain_m: number | null;
+    duration_seconds: number | null;
+    best_forward_gain_m: number | null;
+  };
+  gaits?: { program?: string; x_gain_m?: number; upright?: boolean }[];
+  runtime?: Record<string, unknown>;
+}
+
 export interface ExperimentSummary {
   id: string;
   name: string;

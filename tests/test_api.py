@@ -48,6 +48,40 @@ def test_api_health_and_capabilities(test_server):
         assert caps["auth_enabled"] is True
 
 
+def test_api_calibration_evidence_is_fail_closed(test_server):
+    base_url, store, _ = test_server
+
+    with urlopen(f"{base_url}/api/calibration") as res:
+        missing = json.loads(res.read().decode())
+    assert missing["status"] == "not_run"
+    assert missing["passed"] is False
+
+    evidence = store.root / "embodied-calibration.json"
+    evidence.write_text(json.dumps({
+        "status": "passed",
+        "passed": True,
+        "config_hash": "accepted-body",
+        "acceptance": {
+            "minimum_forward_gain_m": 0.05,
+            "best_forward_gain_m": 0.061,
+            "duration_seconds": 3.0,
+        },
+        "gaits": [{"program": "wave_a", "x_gain_m": 0.061, "upright": True}],
+        "runtime": {"python": "3.12"},
+    }))
+    with urlopen(f"{base_url}/api/calibration") as res:
+        accepted = json.loads(res.read().decode())
+    assert accepted["valid"] is True
+    assert accepted["passed"] is True
+    assert accepted["acceptance"]["best_forward_gain_m"] == 0.061
+
+    evidence.write_text(json.dumps({"status": "passed", "passed": True}))
+    with urlopen(f"{base_url}/api/calibration") as res:
+        invalid = json.loads(res.read().decode())
+    assert invalid["status"] == "invalid"
+    assert invalid["passed"] is False
+
+
 def test_api_cors_preflight(test_server):
     base_url, _, _ = test_server
     req = Request(f"{base_url}/api/experiments", method="OPTIONS")

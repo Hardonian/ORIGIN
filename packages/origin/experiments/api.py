@@ -30,6 +30,7 @@ from urllib.parse import parse_qs, urlparse
 from origin.experiments.store import Store
 
 MAX_LAUNCH_BUDGET = 5_000_000  # hard cap for UI-launched experiments
+CALIBRATION_EVIDENCE_FILE = "embodied-calibration.json"
 
 
 class RateLimiter:
@@ -225,6 +226,77 @@ def _morphology_plan(store: Store, exp_id: str, trial_id: str) -> dict:
             "acceptance": "A production gait must remain upright and gain at least 0.050 m in 3 s.",
             "command": "python scripts/probe_embodied_morphology.py",
         },
+    }
+
+
+def _calibration_evidence(store: Store) -> dict:
+    """Return validated crawler-calibration evidence persisted beside the store.
+
+    The probe is deliberately fail-closed: an arbitrary JSON file saying
+    ``passed`` cannot unlock a physics claim unless it includes a measured forward
+    gain at or above the recorded acceptance threshold and at least one gait row.
+    """
+    path = Path(store.root).resolve() / CALIBRATION_EVIDENCE_FILE
+    unavailable = {
+        "available": False,
+        "valid": False,
+        "status": "not_run",
+        "passed": False,
+        "file": CALIBRATION_EVIDENCE_FILE,
+        "message": "No persisted PyBullet calibration evidence was found.",
+        "command": "python scripts/probe_embodied_morphology.py --json-out runs/embodied-calibration.json",
+    }
+    if not path.exists():
+        return unavailable
+    try:
+        oversized = path.stat().st_size > 1_000_000
+    except OSError:
+        return unavailable
+    if oversized:
+        return {**unavailable, "available": True, "status": "invalid", "message": "Calibration evidence exceeds 1 MB."}
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return {**unavailable, "available": True, "status": "invalid", "message": f"Unreadable calibration evidence: {exc}"}
+    if not isinstance(raw, dict):
+        return {**unavailable, "available": True, "status": "invalid", "message": "Calibration evidence must be a JSON object."}
+
+    status = raw.get("status")
+    passed = raw.get("passed") is True
+    acceptance = raw.get("acceptance") if isinstance(raw.get("acceptance"), dict) else {}
+    minimum = acceptance.get("minimum_forward_gain_m")
+    best = acceptance.get("best_forward_gain_m")
+    gaits = raw.get("gaits") if isinstance(raw.get("gaits"), list) else []
+    minimum_value = float(minimum) if isinstance(minimum, (int, float)) else None
+    best_value = float(best) if isinstance(best, (int, float)) else None
+    valid_pass = (
+        status == "passed"
+        and passed
+        and minimum_value is not None
+        and best_value is not None
+        and best_value >= minimum_value
+        and bool(gaits)
+    )
+    valid_nonpass = status in {"failed", "unavailable"} and not passed
+    valid = valid_pass or valid_nonpass
+    if not valid:
+        status = "invalid"
+
+    return {
+        "available": True,
+        "valid": valid,
+        "status": status,
+        "passed": valid_pass,
+        "file": CALIBRATION_EVIDENCE_FILE,
+        "message": "Validated probe evidence." if valid else "Calibration evidence does not meet the evidence contract.",
+        "config_hash": raw.get("config_hash"),
+        "acceptance": {
+            "minimum_forward_gain_m": minimum_value,
+            "duration_seconds": acceptance.get("duration_seconds"),
+            "best_forward_gain_m": best_value,
+        },
+        "gaits": gaits if valid else [],
+        "runtime": raw.get("runtime") if isinstance(raw.get("runtime"), dict) else {},
     }
 
 
@@ -507,6 +579,8 @@ def make_handler(
                     if not exp_id or not trial_id:
                         return self._send({"error": "experiment and trial required"}, 400)
                     return self._send(_morphology_plan(store, exp_id, trial_id))
+                if url.path == "/api/calibration":
+                    return self._send(_calibration_evidence(store))
                 return self._send({"error": "unknown endpoint", "path": url.path}, 404)
             except FileNotFoundError as exc:
                 return self._send({"error": str(exc)}, 404)
