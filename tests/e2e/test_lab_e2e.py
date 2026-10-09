@@ -113,10 +113,7 @@ def test_overview_renders_live_experiment(page):
 
     cmp = _api(f"/api/compare?experiment={exp_id}")
     first_algo = next(iter(cmp["comparison"]), None)
-    if first_algo:
-        body = _wait_for_text(page, first_algo)
-    else:
-        body = page.inner_text("body")
+    body = _wait_for_text(page, first_algo) if first_algo else page.inner_text("body")
 
     assert "Research overview" in body
     for algo in cmp["comparison"]:

@@ -159,7 +159,7 @@ def main() -> int:
         if not wait_for_url(f"http://127.0.0.1:{api_port}/api/health", "API"):
             return 1
 
-        print("[e2e] Checking the live UI↔API contract...")
+        print("[e2e] Checking the live UI-API contract...")
         smoke_env = os.environ.copy()
         smoke_env["ORIGIN_API"] = api_url
         smoke = subprocess.run(
