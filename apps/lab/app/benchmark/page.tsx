@@ -11,19 +11,37 @@ export default function BenchmarkPage() {
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     apiGet<ExperimentSummary[]>("/api/experiments")
       .then((d) => {
+        if (cancelled) return;
         setExps(d);
+        setErr(null);
         if (d.length) setExpId(d[0].id);
       })
-      .catch((e) => setErr(String(e)));
+      .catch((e) => {
+        if (!cancelled) setErr(String(e));
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
     if (!expId) return;
+    let cancelled = false;
     apiGet<Comparison>(`/api/compare?experiment=${expId}`)
-      .then(setCmp)
-      .catch((e) => setErr(String(e)));
+      .then((d) => {
+        if (cancelled) return;
+        setCmp(d);
+        setErr(null);
+      })
+      .catch((e) => {
+        if (!cancelled) setErr(String(e));
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [expId]);
 
   const variants = useMemo(() => {

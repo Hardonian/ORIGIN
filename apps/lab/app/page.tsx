@@ -22,23 +22,42 @@ export default function OverviewPage() {
 
   const reload = () => {
     sfx.click();
+    setErr(null);
     setTick((t) => t + 1);
   };
 
   useEffect(() => {
+    let cancelled = false;
     apiGet<ExperimentSummary[]>("/api/experiments")
       .then((d) => {
+        if (cancelled) return;
         setExps(d);
+        setErr(null);
         if (d.length) setSel((cur) => cur ?? d[0].id);
       })
-      .catch((e) => setErr(String(e)));
+      .catch((e) => {
+        if (!cancelled) setErr(String(e));
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [tick]);
 
   useEffect(() => {
     if (!sel) return;
+    let cancelled = false;
     apiGet<Comparison>(`/api/compare?experiment=${sel}`)
-      .then(setCmp)
-      .catch((e) => setErr(String(e)));
+      .then((d) => {
+        if (cancelled) return;
+        setCmp(d);
+        setErr(null);
+      })
+      .catch((e) => {
+        if (!cancelled) setErr(String(e));
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [sel, tick]);
 
   useEffect(() => {

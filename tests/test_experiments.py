@@ -42,6 +42,15 @@ def test_validate_config_ok():
     validate_config(TINY)
 
 
+def test_registered_multi_niche_transfer_config_validates():
+    path = Path(__file__).parents[1] / "configs" / "multi_niche_transfer.json"
+    cfg = json.loads(path.read_text(encoding="utf-8"))
+    validate_config(cfg)
+    assert cfg["env"]["obs_mode"] == "multi_niche"
+    assert cfg["env"]["n_resources_b"] > 0
+    assert set(cfg["train_seeds"]).isdisjoint(cfg["test_seeds"])
+
+
 def test_validate_config_rejects_seed_leakage():
     bad = json.loads(json.dumps(TINY))
     bad["test_seeds"] = [1, 99]
