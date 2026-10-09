@@ -10,6 +10,7 @@ across both the discrete gridworld and continuous articulated rigid-body
 ## 1. Hypotheses and Scope
 
 ### H-AC.1 (Sample Efficiency & Value Estimation on Gridworld)
+
 Under a strict, fixed training-interaction budget (500,000 steps) on the
 registered single-niche grid task, the PPO Actor-Critic baseline with
 Generalized Advantage Estimation (GAE) achieves higher held-out base-task reward
@@ -18,6 +19,7 @@ than the non-critic REINFORCE control:
 $$\Delta_{\text{grid}} = \bar{R}_{\text{PPO}} - \bar{R}_{\text{REINFORCE}} > 0$$
 
 ### H-AC.2 (Embodied Locomotion Competence)
+
 Under a strict training-interaction budget (300,000 steps) on the PyBullet
 embodied ground crawler task (`worm`, 8 revolute links), PPO discovers a
 locomotion gait achieving forward displacement and reward strictly exceeding
@@ -30,11 +32,13 @@ $$\Delta_{\text{embodied}} = \bar{R}_{\text{PPO}} - \bar{R}_{\text{random}} > 0$
 ## 2. Fixed Environments and Algorithm Specifications
 
 ### 2.1 Gridworld Task
+
 - **Arena:** 10×10 egocentric random-terrain environment.
 - **Seeds:** Training seeds `[11, 22, 33, 44]`, held-out test seeds `[101, 202, 303, 404]`.
 - **Budget:** 500,000 training interactions per seed.
 
 ### 2.2 Embodied Physics Task
+
 - **Simulator:** PyBullet DIRECT mode (Milestone 4).
 - **Body Plan:** `worm` preset (8 revolute links, $L = 0.16\text{ m}$, $r = 0.035\text{ m}$, mass $0.25\text{ kg}$, yaw joints, anisotropic friction $\mu_{\text{lat}} = 1.25, \mu_{\text{long}} = 0.20$).
 - **Control Horizon:** 8.0 s (240 control steps at $\Delta t = 1/30\text{ s}$).
@@ -42,6 +46,7 @@ $$\Delta_{\text{embodied}} = \bar{R}_{\text{PPO}} - \bar{R}_{\text{random}} > 0$
 - **Budget:** 300,000 training interactions per seed.
 
 ### 2.3 Network Architecture & Hyperparameters
+
 - **Actor Network:** MLP with dimensions $[D_{\text{obs}}, 24, N_{\text{actions}}]$, $\tanh$ hidden activations, softmax categorical action head, Adam optimizer ($\text{lr} = 0.008$).
 - **Critic Network:** MLP with dimensions $[D_{\text{obs}}, 24, 1]$, $\tanh$ hidden activations, linear scalar head, Adam optimizer ($\text{lr} = 0.012$).
 - **RL Hyperparameters:**

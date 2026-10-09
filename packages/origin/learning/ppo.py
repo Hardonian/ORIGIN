@@ -272,7 +272,7 @@ def ppo(
                     x = np.asarray(obs, dtype=np.float64)
                     _, p = actor.forward(x)
                     _, v = critic.forward(x)
-                    a = int(rng.choice(len(p), p=p))
+                    a = rng.choice(len(p), p=p)
 
                     rollout_obs.append(x)
                     rollout_actions.append(a)
