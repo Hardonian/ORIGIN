@@ -24,6 +24,76 @@ from origin.experiments.store import Store
 
 BASELINE = "fixed_objective_ga"
 
+# These protocols predate the strict batch-reservation accounting used for the
+# current H1.MN evidence, are invalidated, or are fixtures.  A generated report
+# is polished enough to be mistaken for current evidence, so require an
+# explicit archival override before emitting one.  Keep this list keyed by
+# protocol (rather than experiment id) so a copied store cannot bypass it.
+LEGACY_PROTOCOL_REASONS = {
+    "ci_deterministic_fixture": "CI fixture; it is not research evidence.",
+    "milestone8_initial_comparison": (
+        "legacy single-niche study; its interaction accounting predates the current "
+        "strict-cap semantics, so it cannot support a current compute claim."
+    ),
+    "powered_replication_H1": (
+        "legacy single-niche study; its interaction accounting predates the current "
+        "strict-cap semantics, so it cannot support a current compute claim."
+    ),
+    "paired_replication_v2_H1": (
+        "legacy single-niche study; its interaction accounting predates the current "
+        "strict-cap semantics, so it cannot support a current compute claim."
+    ),
+    "paired_power_v3_H1ME": (
+        "legacy single-niche study; its interaction accounting predates the current "
+        "strict-cap semantics, so it cannot support a current compute claim."
+    ),
+    "multi_niche_pilot_v1": (
+        "exploratory pilot predating strict batch reservation and the uniquely fixed "
+        "ecological-shock aggregation; it is not confirmatory evidence."
+    ),
+    "multi_niche_transfer_v2_H1MN": (
+        "invalidated execution: optimizers exceeded the registered 25,000-step cap. "
+        "Use the strict-cap v3 replication instead."
+    ),
+    "embodied_transfer_v2": (
+        "retracted embodied campaign: the physical instrument failed calibration; no "
+        "embodied result from this protocol is evidence."
+    ),
+}
+
+MULTI_NICHE_ANALYSIS_DEFAULTS = {
+    "multi_niche_pilot_v1": (
+        "H1_multi_niche_analysis.md",
+        20261011,
+        "research/protocols/multi_niche_pilot.md",
+    ),
+    "multi_niche_transfer_v2_H1MN": (
+        "H1_multi_niche_v2_analysis.md",
+        20261014,
+        "research/protocols/multi_niche_replication_v2.md",
+    ),
+    "multi_niche_transfer_v3_strict_cap_H1MN": (
+        "H1_multi_niche_v3_analysis.md",
+        20261015,
+        "research/protocols/multi_niche_replication_v3.md",
+    ),
+}
+
+
+def legacy_protocol_reason(protocol: object) -> str | None:
+    """Return why a protocol needs an explicit archival report override."""
+    return LEGACY_PROTOCOL_REASONS.get(str(protocol))
+
+
+def multi_niche_analysis_defaults(protocol: object) -> tuple[str, int, str]:
+    """Return the registered analysis file, RNG seed, and protocol for a niche study."""
+    try:
+        return MULTI_NICHE_ANALYSIS_DEFAULTS[str(protocol)]
+    except KeyError as exc:
+        raise ValueError(
+            f"unknown multi-niche protocol {protocol!r}; pass explicit report metadata before generating it"
+        ) from exc
+
 
 def _txt(x, d=3):
     return "—" if x is None else f"{x:.{d}f}"
@@ -57,6 +127,8 @@ def main() -> int:
                     help="filename of the registered analysis to cite (default depends on design)")
     ap.add_argument("--bootstrap-seed", type=int, default=None,
                     help="registered bootstrap seed of the primary analysis (must match analyze.py)")
+    ap.add_argument("--allow-legacy", action="store_true",
+                    help="generate an explicitly watermarked archival report for a legacy protocol")
     ap.add_argument("--out", default="research/reports/ORIGIN_Initial_Research_Report.md")
     args = ap.parse_args()
 
@@ -67,7 +139,21 @@ def main() -> int:
     exp = next((e for e in exps if e["id"] == args.experiment), exps[0])
     exp_id = exp["id"]
     cfg = json.loads(exp["config_json"])
+    legacy_reason = legacy_protocol_reason(cfg.get("protocol"))
+    if legacy_reason and not args.allow_legacy:
+        raise SystemExit(
+            "refusing to generate a current-looking report for protocol "
+            f"{cfg.get('protocol')!r}: {legacy_reason} "
+            "Use --allow-legacy only for an explicitly archival artifact."
+        )
     is_multi_niche = int(cfg.get("env", {}).get("n_resources_b", 0)) > 0
+    if is_multi_niche:
+        try:
+            default_analysis_file, default_boot_seed, protocol_doc = multi_niche_analysis_defaults(
+                cfg.get("protocol")
+            )
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from exc
     manifest_path = Path(args.store) / exp_id / "manifest.json"
     manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
 
@@ -196,11 +282,17 @@ def main() -> int:
     env = manifest.get("environment", {})
     lines: list[str] = []
     a = lines.append
+    if legacy_reason:
+        a("> ## Archival evidence warning")
+        a(">")
+        a(f"> This report is **not current confirmatory evidence**: {legacy_reason}")
+        a("> See `research/reports/RESULT_PROVENANCE.md` before citing any result from it.")
+        a("")
     a("# Open-Ended Evolution and Cross-Morphology Generalization: A Reproducible Experimental Framework")
     a("")
     if is_multi_niche:
-        analysis_file = args.analysis_file or "H1_multi_niche_analysis.md"
-        boot_seed = args.bootstrap_seed if args.bootstrap_seed is not None else 20261011
+        analysis_file = args.analysis_file or default_analysis_file
+        boot_seed = args.bootstrap_seed if args.bootstrap_seed is not None else default_boot_seed
     else:
         analysis_file = args.analysis_file or ("H1_paired_v2_analysis.md" if args.design == "paired" else "H1_powered_analysis.md")
         boot_seed = args.bootstrap_seed if args.bootstrap_seed is not None else (20261009 if args.design == "paired" else 20261008)
@@ -343,7 +435,8 @@ def main() -> int:
 
     a("## 7. Limitations")
     a("")
-    a(f"* **PRELIMINARY.** {len(cfg['seeds'])} seeds per method; confidence intervals are wide and no null-hypothesis test is powered.")
+    if cfg.get("protocol") != "multi_niche_transfer_v3_strict_cap_H1MN":
+        a(f"* **PRELIMINARY.** {len(cfg['seeds'])} seeds per method; confidence intervals are wide and no null-hypothesis test is powered.")
     if is_multi_niche:
         a("* The automatic base-task report intentionally does not supply a primary transfer verdict;")
         a("  shocks are repeated measurements within a method seed and require the dedicated analysis.")
@@ -365,7 +458,7 @@ def main() -> int:
     a(f".venv/bin/python scripts/make_report.py --store runs --experiment {exp_id}")
     if is_multi_niche:
         a(f".venv/bin/python scripts/analyze_multi_niche.py --store runs --experiment {exp_id} "
-          f"--bootstrap-seed {boot_seed} --protocol-doc research/protocols/multi_niche_pilot.md --out research/reports/{analysis_file}")
+          f"--bootstrap-seed {boot_seed} --protocol-doc {protocol_doc} --out research/reports/{analysis_file}")
     a("```")
     a("")
     a(f"Reference environment: Python {env.get('python', '?')}, {env.get('platform', '?')}, {env.get('cpu_count', '?')} CPUs.")
@@ -376,7 +469,11 @@ def main() -> int:
     a("")
     a("## 10. Next milestone")
     a("")
-    if is_multi_niche:
+    if cfg.get("protocol") == "multi_niche_transfer_v3_strict_cap_H1MN":
+        a("The strict-cap multi-niche replication is complete. Any extension must use a new")
+        a("pre-registered endpoint and fresh method seeds; the registered v3 analysis remains")
+        a("the only basis for its current confirmatory conclusion.")
+    elif is_multi_niche:
         a("Pre-register and run the powered multi-niche replication campaign (n=40 paired seeds)")
         a("to decisively evaluate ecological shock adaptation and asymmetric specialist advantage.")
     else:

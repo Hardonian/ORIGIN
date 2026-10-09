@@ -21,7 +21,7 @@
 ## Verified features
 
 * **Strict-budget multi-niche replication confirmed (H1.MN v3)** — Pre-registered 64-paired-seed campaign (experiment `1e8559d6de45`, 256/256 trials, 0 failures; protocol `research/protocols/multi_niche_replication_v3.md`). Under strict budget caps (every batch pre-reserved before evaluation, interactions capped at ≤25,000 steps per seed: GA 23,026 vs ME 23,018), decisively confirmed that Quality-Diversity archiving over behavioral niche specializations outperforms single-objective evolution under ecological shocks (+0.418 paired adapted transfer gain [95% bootstrap CI +0.057, +0.778], Wilcoxon p=0.0305). Confirmatory reports in `research/reports/H1_multi_niche_v3_analysis.md` and `research/reports/ORIGIN_Multi_Niche_v3_Research_Report.md`.
-* **Multi-niche ecological engine & pre-registered campaign (H1.MN)** — Full dual-resource ecology with zone biomes (`zones`), egocentric 7-D multi-niche sensing vector (`[en, a_dr, a_dc, a_dist, b_dr, b_dc, b_dist]`), multi-target heuristic BFS policies, 2D MAP-Elites niche archiving over `(collected_a, collected_b)`, and 5 transfer variants (`niche_payoff_swap`, `niche_toxic_hazard`, `niche_scarcity_shock`, `niche_a_only`, `niche_b_only`). Pre-registered hypothesis `research/hypotheses/H1_multi_niche_transfer.md` and protocol `research/protocols/multi_niche_pilot.md` executed across 20/20 trials (experiment `f8f4c952a5c3`, 0 failures, 17.07 s runtime). Formally analyzed in `research/reports/H1_multi_niche_analysis.md` and `research/reports/ORIGIN_Multi_Niche_Research_Report.md`. Regression-tested by 10/10 tests in `tests/test_multi_niche.py`.
+* **Multi-niche ecological engine & pilot (H1.MN)** — Full dual-resource ecology with zone biomes (`zones`), egocentric 7-D multi-niche sensing vector (`[en, a_dr, a_dc, a_dist, b_dr, b_dc, b_dist]`), multi-target heuristic BFS policies, 2D MAP-Elites niche archiving over `(collected_a, collected_b)`, and 5 transfer variants (`niche_payoff_swap`, `niche_toxic_hazard`, `niche_scarcity_shock`, `niche_a_only`, `niche_b_only`). The 20/20-trial pilot `f8f4c952a5c3` is retained as exploratory instrumentation only: it predates strict batch reservation and a uniquely fixed shock aggregation, so it does **not** decide H1.MN. The strict-cap v3 replication above is the sole confirmatory evidence. See `research/reports/RESULT_PROVENANCE.md`. Regression-tested by 10/10 tests in `tests/test_multi_niche.py`.
 * **Cutting-edge frontend UX & Web Audio gamification** — Complete design system built on
   vanilla CSS with Google Fonts (`Outfit`, `Inter`, `JetBrains Mono`), radial bioluminescent glows,
   floating glassmorphism toast notification stack (`ToastContainer.tsx`), and pure synthesized
@@ -314,7 +314,12 @@ ERROR: epyc is not reachable over SSH.   (expected: node offline — see Blocker
    non-confirmatory control. Do not tune it on existing held-out tasks; if RL is
    strategically important, pre-register a dedicated actor-critic or
    hyperparameter study with fresh train/test seeds.
-6. Watch for an upstream fix to the dev-only `braces` advisory (Next lint plugin).
+6. **Legacy evidence refresh (optional, for additional current claims).** The
+   provenance register now prevents old stores from producing current-looking
+   reports. Re-run any desired single-niche finding under the strict-cap
+   evaluator with a new pre-registered protocol; the legacy raw stores are not
+   present locally, so their old interaction totals must not be reused.
+7. Watch for an upstream fix to the dev-only `braces` advisory (Next lint plugin).
 
 ## Reproduction commands
 

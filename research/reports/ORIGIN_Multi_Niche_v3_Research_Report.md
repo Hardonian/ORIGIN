@@ -84,7 +84,8 @@ No failures were observed; every recorded trial completed.
 
 ## 7. Limitations
 
-* **PRELIMINARY.** 64 seeds per method; confidence intervals are wide and no null-hypothesis test is powered.
+* This automatically generated report is descriptive. The registered paired
+  confirmatory decision is in `H1_multi_niche_v3_analysis.md`, not in this table.
 * The automatic base-task report intentionally does not supply a primary transfer verdict;
   shocks are repeated measurements within a method seed and require the dedicated analysis.
 * A reactive controller is a low-ceiling policy class on tasks requiring planning; this
@@ -101,7 +102,7 @@ No failures were observed; every recorded trial completed.
 uv venv --python 3.12 .venv && uv pip install -e '.[dev]' --python .venv/bin/python
 .venv/bin/origin-run --config configs/multi_niche_transfer_replication_v3.json --store runs --jobs $(nproc)
 .venv/bin/python scripts/make_report.py --store runs --experiment 1e8559d6de45
-.venv/bin/python scripts/analyze_multi_niche.py --store runs --experiment 1e8559d6de45 --bootstrap-seed 20261015 --protocol-doc research/protocols/multi_niche_pilot.md --out research/reports/H1_multi_niche_v3_analysis.md
+.venv/bin/python scripts/analyze_multi_niche.py --store runs --experiment 1e8559d6de45 --bootstrap-seed 20261015 --protocol-doc research/protocols/multi_niche_replication_v3.md --out research/reports/H1_multi_niche_v3_analysis.md
 ```
 
 Reference environment: Python 3.13.9, Windows-11-10.0.29683-SP0, 24 CPUs.
@@ -114,5 +115,6 @@ Reference environment: Python 3.13.9, Windows-11-10.0.29683-SP0, 24 CPUs.
 
 ## 10. Next milestone
 
-Pre-register and run the powered multi-niche replication campaign (n=40 paired seeds)
-to decisively evaluate ecological shock adaptation and asymmetric specialist advantage.
+The strict-cap multi-niche replication is complete. Any extension must use a new
+pre-registered endpoint and fresh method seeds; the registered v3 analysis remains
+the only basis for its current confirmatory conclusion.

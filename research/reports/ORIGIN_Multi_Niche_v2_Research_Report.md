@@ -1,3 +1,11 @@
+> ## Retraction — 2026-10-09
+>
+> This generated v2 report is retained only as an execution artifact. Its
+> optimizers exceeded the registered 25,000-step training cap, so **none of its
+> numerical conclusions are confirmatory evidence**. Use
+> `H1_multi_niche_v3_analysis.md` for the fresh strict-cap replication and see
+> `RESULT_PROVENANCE.md` for citation rules.
+
 # Open-Ended Evolution and Cross-Morphology Generalization: A Reproducible Experimental Framework
 
 **Author:** Scott Hardie (Hardonian) · **Status:** 64 seeds; interval-based registered analysis in `research/reports/H1_multi_niche_v2_analysis.md`. Not peer reviewed.
@@ -101,7 +109,7 @@ No failures were observed; every recorded trial completed.
 uv venv --python 3.12 .venv && uv pip install -e '.[dev]' --python .venv/bin/python
 .venv/bin/origin-run --config configs/multi_niche_transfer_replication_v2.json --store runs --jobs $(nproc)
 .venv/bin/python scripts/make_report.py --store runs --experiment 5058bcacd3de
-.venv/bin/python scripts/analyze_multi_niche.py --store runs --experiment 5058bcacd3de --bootstrap-seed 20261014 --protocol-doc research/protocols/multi_niche_pilot.md --out research/reports/H1_multi_niche_v2_analysis.md
+.venv/bin/python scripts/analyze_multi_niche.py --store runs --experiment 5058bcacd3de --bootstrap-seed 20261014 --protocol-doc research/protocols/multi_niche_replication_v2.md --out research/reports/H1_multi_niche_v2_analysis.md
 ```
 
 Reference environment: Python 3.13.9, Windows-11-10.0.29683-SP0, 24 CPUs.

@@ -1,3 +1,11 @@
+> ## Exploratory evidence notice — 2026-10-09
+>
+> This pilot is retained as an archival instrument check, not a confirmatory
+> H1.MN result: it predates strict batch reservation and a uniquely fixed
+> ecological-shock aggregation. Use `H1_multi_niche_v3_analysis.md` for the
+> strict-cap confirmatory replication and see `RESULT_PROVENANCE.md` before
+> citing this artifact.
+
 # Open-Ended Evolution and Cross-Morphology Generalization: A Reproducible Experimental Framework
 
 **Author:** Scott Hardie (Hardonian) · **Status:** 5 seeds; interval-based registered analysis in `research/reports/H1_multi_niche_analysis.md`. Not peer reviewed.

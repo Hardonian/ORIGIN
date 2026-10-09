@@ -117,42 +117,29 @@ Run the UI↔API contract smoke tests:
 node apps/lab/scripts/smoke-api.mjs
 ```
 
-Run the pre-registered powered replication of H1, then generate its report and the
-registered statistical analysis (both generated from the store, no hand-entered numbers):
+The current confirmatory grid result is the strict-cap multi-niche H1.MN
+replication. Run it, then generate its descriptive report and registered
+paired transfer analysis (both from stored artifacts, with no hand-entered
+numbers):
 
 ```bash
-.venv/bin/origin-run --config configs/pilot_powered.json --store runs --jobs 8
-.venv/bin/python scripts/make_report.py --store runs --experiment <id> --out research/reports/ORIGIN_Initial_Research_Report.md
-.venv/bin/python scripts/analyze.py      --store runs --experiment <id> --out research/reports/H1_powered_analysis.md
+.venv/bin/origin-run --config configs/multi_niche_transfer_replication_v3.json --store runs --jobs 8
+.venv/bin/python scripts/make_report.py --store runs --experiment <id> --out research/reports/ORIGIN_Multi_Niche_v3_Research_Report.md
+.venv/bin/python scripts/analyze_multi_niche.py --store runs --experiment <id> \
+  --bootstrap-seed 20261015 --protocol-doc research/protocols/multi_niche_replication_v3.md \
+  --out research/reports/H1_multi_niche_v3_analysis.md
 ```
 
-Study v2 repeats this with a **paired** primary design and fresh seeds
-(`configs/pilot_paired_v2.json`, `research/protocols/paired_v2.md`):
-
-```bash
-.venv/bin/origin-run --config configs/pilot_paired_v2.json --store runs --jobs 8
-.venv/bin/python scripts/analyze.py --store runs --experiment <id> --design paired --out research/reports/H1_paired_v2_analysis.md
-```
-
-Study v3 (`configs/pilot_paired_v3.json`, `research/protocols/paired_v3_power.md`) is
-power-sized from a prior power analysis and scoped to the resolvable comparison:
-
-```bash
-.venv/bin/origin-run --config configs/pilot_paired_v3.json --store runs --jobs 8
-.venv/bin/python scripts/analyze.py --store runs --experiment <id> --design paired \
-  --bootstrap-seed 20261010 --protocol-doc research/protocols/paired_v3_power.md \
-  --out research/reports/H1_v3_decisive_analysis.md
-```
-
-Every study uses a **distinct** bootstrap seed and its analysis is fixed before the
-run; no study is re-analysed and the conclusion is never switched to a more
-favourable statistic.
+Older single-niche and multi-niche stores are retained for audit, not as current
+strict-cap evidence. `scripts/make_report.py` requires an explicit
+`--allow-legacy` override for an archival report; see
+`research/reports/RESULT_PROVENANCE.md` before citing them.
 
 Distribute a campaign to the compute node when it is online:
 
 ```bash
 scripts/origin_remote_worker.sh --check
-scripts/origin_remote_worker.sh --config configs/pilot.json --jobs 32
+scripts/origin_remote_worker.sh --config configs/multi_niche_transfer_replication_v3.json --jobs 32
 ```
 
 ## Repository layout
