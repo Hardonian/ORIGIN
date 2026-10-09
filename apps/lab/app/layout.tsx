@@ -1,6 +1,7 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import Nav from "./nav";
+import ToastContainer from "./ToastContainer";
 
 export const metadata: Metadata = {
   title: "ORIGIN Research Lab",
@@ -14,11 +15,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <header className="top">
           <span className="brand">ORIGIN</span>
           <Nav />
-          <span className="muted" style={{ marginLeft: "auto" }}>
-            research lab · local
-          </span>
         </header>
         <main>{children}</main>
+        <ToastContainer />
       </body>
     </html>
   );

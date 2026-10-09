@@ -255,15 +255,17 @@ def _calibration_evidence(store: Store) -> dict:
     if oversized:
         return {**unavailable, "available": True, "status": "invalid", "message": "Calibration evidence exceeds 1 MB."}
     try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
+        raw_value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         return {**unavailable, "available": True, "status": "invalid", "message": f"Unreadable calibration evidence: {exc}"}
-    if not isinstance(raw, dict):
+    if not isinstance(raw_value, dict):
         return {**unavailable, "available": True, "status": "invalid", "message": "Calibration evidence must be a JSON object."}
+    raw: dict[str, Any] = raw_value
 
     status = raw.get("status")
     passed = raw.get("passed") is True
-    acceptance = raw.get("acceptance") if isinstance(raw.get("acceptance"), dict) else {}
+    acceptance_value = raw.get("acceptance")
+    acceptance: dict[str, Any] = acceptance_value if isinstance(acceptance_value, dict) else {}
     minimum = acceptance.get("minimum_forward_gain_m")
     best = acceptance.get("best_forward_gain_m")
     gaits = raw.get("gaits") if isinstance(raw.get("gaits"), list) else []
