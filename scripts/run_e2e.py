@@ -159,6 +159,18 @@ def main() -> int:
         if not wait_for_url(f"http://127.0.0.1:{api_port}/api/health", "API"):
             return 1
 
+        print("[e2e] Checking the live UI↔API contract...")
+        smoke_env = os.environ.copy()
+        smoke_env["ORIGIN_API"] = api_url
+        smoke = subprocess.run(
+            ["node", str(lab_dir / "scripts" / "smoke-api.mjs")],
+            cwd=str(repo_root),
+            env=smoke_env,
+        )
+        if smoke.returncode != 0:
+            print("[e2e] API contract smoke test failed", file=sys.stderr)
+            return smoke.returncode
+
         # 4. Start Next.js Lab server
         print(f"[e2e] Starting Lab UI server on http://127.0.0.1:{ui_port}...")
         env = build_env

@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from origin.doctor import (
-    check_embodied_calibration,
     check_core_dependencies,
+    check_embodied_calibration,
     check_optional_extensions,
     check_store,
     main,

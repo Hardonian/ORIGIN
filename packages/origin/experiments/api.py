@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
-from origin.experiments.calibration import CALIBRATION_EVIDENCE_FILE, read_calibration_evidence
+from origin.experiments.calibration import read_calibration_evidence
 from origin.experiments.store import Store
 
 MAX_LAUNCH_BUDGET = 5_000_000  # hard cap for UI-launched experiments

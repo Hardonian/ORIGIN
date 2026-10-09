@@ -5,12 +5,12 @@ and the local doctor consume it through this module so a dashboard cannot claim
 that the crawler passed a calibration which command-line diagnostics reject.
 """
 
+
 from __future__ import annotations
 
 import json
 from pathlib import Path
 from typing import Any
-
 
 CALIBRATION_EVIDENCE_FILE = "embodied-calibration.json"
 MAX_EVIDENCE_BYTES = 1_000_000

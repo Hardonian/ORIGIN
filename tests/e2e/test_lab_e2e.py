@@ -109,10 +109,16 @@ def test_overview_renders_live_experiment(page):
     exp_id = exps[0]["id"]
 
     _goto(page, "/")
-    body = _wait_for_text(page, exp_id)
+    _wait_for_text(page, exp_id)
+
+    cmp = _api(f"/api/compare?experiment={exp_id}")
+    first_algo = next(iter(cmp["comparison"]), None)
+    if first_algo:
+        body = _wait_for_text(page, first_algo)
+    else:
+        body = page.inner_text("body")
 
     assert "Research overview" in body
-    cmp = _api(f"/api/compare?experiment={exp_id}")
     for algo in cmp["comparison"]:
         assert algo in body, f"method {algo} missing from the comparison table"
 
