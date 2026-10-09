@@ -36,6 +36,7 @@ origin-run = "origin.experiments.runner:main"
 origin-api = "origin.experiments.api:main"
 origin-worker = "origin.experiments.worker:main"
 origin-merge-stores = "origin.experiments.store:merge_main"
+origin-reconcile-experiments = "origin.experiments.store:reconcile_main"
 origin-doctor = "origin.doctor:main"
 
 [build-system]

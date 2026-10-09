@@ -137,6 +137,60 @@ class Store:
         if cur.rowcount != 1:
             raise KeyError(f"unknown experiment {exp_id}")
 
+    def reconcile_experiment_statuses(self, dry_run: bool = False) -> list[dict[str, str]]:
+        """Finalize legacy ``running`` experiments whose trials are terminal.
+
+        Earlier runner versions completed every trial but never finalized the
+        parent experiment record.  Infer only states that are mechanically
+        unambiguous: the terminal trial count must exactly equal the matrix
+        declared in the stored configuration; all-done trials are
+        ``completed`` and any terminal matrix containing a failed trial is
+        ``failed``. Experiments with no rows, incomplete/invalid matrices,
+        pending/running rows, or an explicitly non-running state are
+        deliberately left untouched.
+        """
+        changes: list[dict[str, str]] = []
+        with self.lock:
+            conn = self._conn()
+            experiments = conn.execute(
+                "SELECT id, status, config_json FROM experiments WHERE status='running' ORDER BY id"
+            ).fetchall()
+            for experiment in experiments:
+                exp_id = str(experiment["id"])
+                try:
+                    config = json.loads(experiment["config_json"])
+                    algorithms = config["algorithms"]
+                    baselines = config["include_baselines"]
+                    seeds = config["seeds"]
+                    expected_count = (len(algorithms) + len(baselines)) * len(seeds)
+                except (KeyError, TypeError, json.JSONDecodeError):
+                    continue
+                if (
+                    not isinstance(algorithms, dict)
+                    or not isinstance(baselines, list)
+                    or not isinstance(seeds, list)
+                    or expected_count <= 0
+                ):
+                    continue
+                counts = {
+                    str(row["status"]): int(row["n"])
+                    for row in conn.execute(
+                        "SELECT status, COUNT(*) AS n FROM trials WHERE experiment_id=? GROUP BY status",
+                        (exp_id,),
+                    ).fetchall()
+                }
+                terminal_count = counts.get("done", 0) + counts.get("failed", 0)
+                if terminal_count != expected_count or counts.get("running", 0) or counts.get("pending", 0):
+                    continue
+                status = "failed" if counts.get("failed", 0) else "completed"
+                changes.append({"experiment_id": exp_id, "from": "running", "to": status})
+                if not dry_run:
+                    conn.execute("UPDATE experiments SET status=? WHERE id=?", (status, exp_id))
+            if not dry_run:
+                conn.commit()
+            conn.close()
+        return changes
+
     def add_trial(self, trial_id: str, exp_id: str, algorithm: str, seed: int, budget: int) -> None:
         with self.lock:
             conn = self._conn()
@@ -488,6 +542,20 @@ def merge_main(argv: list[str] | None = None) -> int:
     if result["conflicts"]:
         print(f"WARNING: {len(result['conflicts'])} trial(s) done on both sides with differing values", file=sys.stderr)
         return 1
+    return 0
+
+
+def reconcile_main(argv: list[str] | None = None) -> int:
+    """CLI: repair terminal experiment statuses left by older runner versions."""
+    import argparse
+
+    ap = argparse.ArgumentParser(description="Reconcile legacy ORIGIN experiment lifecycle statuses")
+    ap.add_argument("--store", default="runs", help="experiment store directory")
+    ap.add_argument("--dry-run", action="store_true", help="report inferred updates without writing them")
+    args = ap.parse_args(argv)
+
+    changes = Store(args.store).reconcile_experiment_statuses(dry_run=args.dry_run)
+    print(json.dumps({"dry_run": args.dry_run, "changes": changes}, indent=2, sort_keys=True))
     return 0
 
 

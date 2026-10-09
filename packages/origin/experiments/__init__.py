@@ -3,8 +3,6 @@
 from importlib import import_module
 from typing import Any
 
-from origin.experiments.store import Store
-
 _RUNNER_EXPORTS = frozenset({"ALGORITHMS", "run_experiment", "run_trial", "validate_config"})
 
 
@@ -19,6 +17,8 @@ def __getattr__(name: str) -> Any:
     if name in _RUNNER_EXPORTS:
         runner = import_module(".runner", __name__)
         return getattr(runner, name)
+    if name == "Store":
+        return import_module(".store", __name__).Store
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 

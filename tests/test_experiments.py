@@ -107,6 +107,34 @@ def test_store_failure_recorded(tmp_path):
     assert store.summary("e1")["n_failed"] == 1
 
 
+def test_store_reconciles_legacy_terminal_experiment_statuses(tmp_path):
+    store = Store(tmp_path)
+    terminal_cfg = {"algorithms": {"ga": {}}, "include_baselines": [], "seeds": [1]}
+    partial_cfg = {"algorithms": {"ga": {}}, "include_baselines": [], "seeds": [1, 2]}
+    for exp_id, config in (("done", terminal_cfg), ("failed", terminal_cfg), ("empty", terminal_cfg), ("partial", partial_cfg)):
+        store.upsert_experiment(exp_id, exp_id, "test", "hash", config, None)
+
+    store.add_trial("done-1", "done", "ga", 1, 100)
+    store.complete_trial("done-1", 100, 1.0, 1.0, {}, {})
+    store.add_trial("failed-1", "failed", "ga", 1, 100)
+    store.fail_trial("failed-1", "boom")
+    store.add_trial("partial-1", "partial", "ga", 1, 100)
+    store.complete_trial("partial-1", 100, 1.0, 1.0, {}, {})
+
+    expected = [
+        {"experiment_id": "done", "from": "running", "to": "completed"},
+        {"experiment_id": "failed", "from": "running", "to": "failed"},
+    ]
+    assert store.reconcile_experiment_statuses(dry_run=True) == expected
+    assert store.experiment("done")["status"] == "running"
+
+    assert store.reconcile_experiment_statuses() == expected
+    assert store.experiment("done")["status"] == "completed"
+    assert store.experiment("failed")["status"] == "failed"
+    assert store.experiment("empty")["status"] == "running"
+    assert store.experiment("partial")["status"] == "running"
+
+
 def test_embodied_morphology_plan_comes_from_persisted_config(tmp_path):
     """The lab may inspect a declared body before a PyBullet host is available.
 
@@ -198,9 +226,9 @@ def test_package_runner_exports_remain_available():
             sys.executable,
             "-c",
             (
-                "from origin.experiments import ALGORITHMS, run_experiment, run_trial, validate_config; "
+                "from origin.experiments import ALGORITHMS, Store, run_experiment, run_trial, validate_config; "
                 "assert 'map_elites' in ALGORITHMS; "
-                "assert all(callable(value) for value in (run_experiment, run_trial, validate_config))"
+                "assert all(callable(value) for value in (Store, run_experiment, run_trial, validate_config))"
             ),
         ],
         capture_output=True,
@@ -208,6 +236,18 @@ def test_package_runner_exports_remain_available():
         text=True,
     )
     assert completed.returncode == 0, completed.stderr
+
+
+def test_store_module_entrypoint_has_no_preimport_warning():
+    """Store's direct ``-m`` entry point must also remain unambiguous."""
+    completed = subprocess.run(
+        [sys.executable, "-m", "origin.experiments.store", "--help"],
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert "found in sys.modules" not in completed.stderr
 
 
 def test_grid_adaptation_never_trains_on_test_seeds(monkeypatch):
