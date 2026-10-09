@@ -81,13 +81,14 @@ def _require_registered_matrix(
             problems.append(f"{algorithm}: non-finite held-out scores for {nonfinite}")
 
     cap = int(config["budget"])
-    over_cap = sorted(
-        int(trial["seed"])
-        for trial in done
-        if trial["algorithm"] == method and int(trial["interactions"]) > cap
-    )
-    if over_cap:
-        problems.append(f"{method}: training cap {cap} exceeded for seeds {over_cap}")
+    for algorithm in config["algorithms"]:
+        over_cap = sorted(
+            int(trial["seed"])
+            for trial in done
+            if trial["algorithm"] == algorithm and int(trial["interactions"]) > cap
+        )
+        if over_cap:
+            problems.append(f"{algorithm}: training cap {cap} exceeded for seeds {over_cap}")
     if problems:
         raise ValueError("incomplete or invalid Actor-Critic analysis: " + "; ".join(problems))
     return sorted(expected), method, baseline

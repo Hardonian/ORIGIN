@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 import pytest
-from scripts.analyze_actor_critic import analyze_actor_critic
+from scripts.analyze_actor_critic import _require_registered_matrix, analyze_actor_critic
 
 from origin.experiments.runner import validate_config
 
@@ -61,3 +61,20 @@ def test_v2_embodied_registration_matches_the_registered_worm():
         "endpoint": "test_mean_reward",
         "bootstrap_seed": 20261019,
     }
+
+
+def test_analysis_rejects_an_over_cap_learned_comparator():
+    cfg = {
+        "budget": 100,
+        "seeds": [1],
+        "algorithms": {"ppo": {}, "reinforce": {}},
+        "primary_comparison": {"method": "ppo", "baseline": "reinforce"},
+    }
+    by_seed = {"ppo": {1: 1.0}, "reinforce": {1: 1.0}}
+    done = [
+        {"algorithm": "ppo", "seed": 1, "interactions": 100},
+        {"algorithm": "reinforce", "seed": 1, "interactions": 101},
+    ]
+
+    with pytest.raises(ValueError, match=r"reinforce: training cap 100 exceeded for seeds \[1\]"):
+        _require_registered_matrix(by_seed, done, cfg)
