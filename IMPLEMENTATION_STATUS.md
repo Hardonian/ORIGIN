@@ -218,10 +218,8 @@ ERROR: epyc is not reachable over SSH.   (expected: node offline — see Blocker
   separately — previously baselines reported evaluation steps while learners
   reported training steps, so "compute cost per method" mixed currencies. Rows
   stored before this change need a re-run before their compute cost is cited.
-* **`scripts/analyze.py` writes a fixed default report path**
-  (`research/reports/H1_powered_analysis.md`) — running it without `--out`
-  clobbers that file. Always pass `--out` (documented in the reproduction
-  commands below).
+* **Analysis output is explicit.** `scripts/analyze.py` requires `--out`, preventing
+  an analysis run from silently overwriting a prior report.
 * **Frontend dependency advisories.** The 4 Next.js runtime advisories are
   **resolved** by the `next@16.4.0` upgrade (with ESLint 9 flat config replacing
   the removed `next lint`). One **dev-only** advisory remains unfixable at

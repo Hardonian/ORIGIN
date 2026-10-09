@@ -91,7 +91,11 @@ def main() -> int:
     ap.add_argument("--bootstrap-seed", type=int, default=None,
                     help="override the registered bootstrap seed (studies use distinct seeds by design)")
     ap.add_argument("--protocol-doc", default=None, help="path of the protocol document to cite")
-    ap.add_argument("--out", default="research/reports/H1_powered_analysis.md")
+    ap.add_argument(
+        "--out",
+        required=True,
+        help="output Markdown path (required to prevent accidentally overwriting a report)",
+    )
     args = ap.parse_args()
 
     store = Store(args.store)
