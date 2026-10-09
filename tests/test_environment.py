@@ -9,6 +9,7 @@ from origin.environments.gridworld import (
     EMPTY,
     OBSTACLE,
     RESOURCE,
+    RESOURCE_B,
     GridWorld,
     GridWorldConfig,
     Replay,
@@ -46,6 +47,57 @@ def test_observation_validity_and_shape():
     assert np.all(np.isfinite(obs))
     assert 0.0 <= obs[0] <= 1.0  # normalised energy
     assert obs[1] in (-1.0, 0.0, 1.0) and obs[2] in (-1.0, 0.0, 1.0)  # resource bearings
+
+
+@pytest.mark.parametrize("obs_mode", ["multi_niche", "multi_niche_local"])
+def test_multi_niche_resources_are_distinct_and_observable(obs_mode):
+    cfg = GridWorldConfig(
+        height=10,
+        width=10,
+        terrain="empty",
+        n_resources=2,
+        n_resources_b=2,
+        n_hazards=1,
+        resource_regen=False,
+        obs_mode=obs_mode,
+        seed=19,
+    )
+    env = GridWorld(cfg)
+    obs, info = env.reset(seed=19)
+    assert int(np.count_nonzero(env._grid == RESOURCE)) == 2
+    assert int(np.count_nonzero(env._grid == RESOURCE_B)) == 2
+    assert obs.shape == (7,)
+    assert env.observation_size == 7
+    assert np.all(np.isfinite(obs))
+    assert info["collected_a"] == 0 and info["collected_b"] == 0
+
+
+def test_multi_niche_resource_b_reward_and_state_roundtrip():
+    env = GridWorld(
+        GridWorldConfig(
+            height=3,
+            width=3,
+            terrain="empty",
+            n_resources=0,
+            n_resources_b=0,
+            n_hazards=0,
+            resource_regen=False,
+            resource_b_reward=2.5,
+            step_penalty=0.1,
+            obs_mode="multi_niche",
+        )
+    )
+    env.reset(seed=0)
+    env._grid = np.full((3, 3), EMPTY, dtype=np.int8)
+    env._grid[1, 1] = RESOURCE_B
+    env._agent = np.array([1, 0])
+    _, reward, _, _, info = env.step(3)
+    assert reward == pytest.approx(2.5 - 0.1)
+    assert info["collected"] == 1 and info["collected_b"] == 1
+    clone = GridWorld()
+    clone.set_state(env.get_state())
+    assert clone.get_state()["collected_b"] == 1
+    assert np.allclose(clone._observation(), env._observation())
 
 
 def test_action_validity():

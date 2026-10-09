@@ -18,11 +18,18 @@ VERSION = "1.0"
 def _init_population(base_env: GridWorldConfig, rng: np.random.Generator, pop_size: int, hidden: tuple[int, ...]) -> list[Organism]:
     # Seed the population with the three canonical morphologies so evolution
     # explores a body-diverse starting set rather than a single body plan.
-    morphs = [
-        Morphology(obs_mode="vector", obs_radius=2, max_speed=1),
-        Morphology(obs_mode="local", obs_radius=2, max_speed=1),
-        Morphology(obs_mode="vector", obs_radius=2, max_speed=2),
-    ]
+    if getattr(base_env, "obs_mode", "").startswith("multi_niche"):
+        morphs = [
+            Morphology(obs_mode="multi_niche", obs_radius=2, max_speed=1),
+            Morphology(obs_mode="multi_niche_local", obs_radius=2, max_speed=1),
+            Morphology(obs_mode="multi_niche", obs_radius=2, max_speed=2),
+        ]
+    else:
+        morphs = [
+            Morphology(obs_mode="vector", obs_radius=2, max_speed=1),
+            Morphology(obs_mode="local", obs_radius=2, max_speed=1),
+            Morphology(obs_mode="vector", obs_radius=2, max_speed=2),
+        ]
     pop: list[Organism] = []
     for i in range(pop_size):
         pop.append(Organism.random(morphs[i % len(morphs)], base_env, rng, hidden=hidden))

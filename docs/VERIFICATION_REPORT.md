@@ -1,5 +1,10 @@
 # Verification Report
 
+> Historical snapshot: this report records the Ubuntu/commit-specific run shown
+> below. For the current verified state (including React 19, calibration evidence,
+> 112 passing tests, and the latest browser/API checks), use
+> `IMPLEMENTATION_STATUS.md`.
+
 > Every entry below was produced by actually running the command shown, on the
 > reference workstation, and copying the observed result. Nothing here is
 > asserted without a command. Where something could not be verified, it is marked

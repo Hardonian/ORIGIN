@@ -7,10 +7,11 @@ import json
 import numpy as np
 import pytest
 
-from origin.environments.gridworld import GridWorldConfig
+from origin.environments.gridworld import EMPTY, RESOURCE_B, GridWorld, GridWorldConfig
 from origin.organisms.genome import MLPController
 from origin.organisms.morphology import Morphology
 from origin.organisms.organism import Lineage, Organism
+from origin.organisms.policies import HeuristicPolicy
 
 
 @pytest.fixture
@@ -44,6 +45,24 @@ def test_mutation_preserves_action_dim(base):
         parent = parent.mutate(rng, base, morph_strength=1.0)
         assert parent.controller.sizes[-1] == base.n_actions
         assert parent.controller.sizes[0] == 7  # fixed control interface
+
+
+def test_multi_niche_morphology_builds_matching_environment(base):
+    cfg = GridWorldConfig.from_dict({**base.to_dict(), "n_resources_b": 2, "obs_mode": "multi_niche"})
+    org = Organism.random(Morphology(obs_mode="multi_niche"), cfg, np.random.default_rng(20))
+    env = org.make_env(cfg, seed=20)
+    obs, _ = env.reset(seed=20)
+    assert obs.shape == (7,)
+    assert org.act(obs, env=env) in range(cfg.n_actions)
+
+
+def test_heuristic_targets_niche_b_resource(base):
+    env = GridWorld(GridWorldConfig.from_dict({**base.to_dict(), "n_resources": 0, "n_resources_b": 0, "n_hazards": 0}))
+    env.reset(seed=0)
+    env._grid = np.full((8, 8), EMPTY, dtype=np.int8)
+    env._agent = np.array([1, 1])
+    env._grid[1, 3] = RESOURCE_B
+    assert HeuristicPolicy(env.n_actions).act(np.zeros(7), env=env) == 3
 
 
 def test_crossover_merges_lineage(base):

@@ -146,7 +146,7 @@ $ .venv/bin/python scripts/analyze_embodied.py --store runs --experiment 589217a
 all methods: mean -1.000, fall 1.00, success 0.00   # morphology does not locomote
 $ .venv/bin/python scripts/analyze.py --store runs --experiment 8f92870eaeb0 --design paired \
     --bootstrap-seed 20261010 --protocol-doc research/protocols/paired_v3_power.md \
-    --out research/reports/H1_v3_decisive_analysis.md     # NOTE: --out, or it clobbers
+    --out research/reports/H1_v3_decisive_analysis.md     # explicit destination required
 map_elites - fixed_objective_ga: -0.221, 95% paired CI [-0.721, +0.262], p=0.538 -> inconclusive
   minimum detectable paired effect = 0.708 (observed |mean diff| = 0.221)   # bounded null
 $ .venv/bin/bandit -q -r packages/origin  # CI gates medium+

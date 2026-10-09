@@ -28,8 +28,15 @@ EMPTY = 0
 OBSTACLE = 1
 RESOURCE = 2
 HAZARD = 3
+RESOURCE_B = 4
 
-CELL_NAMES = {EMPTY: "empty", OBSTACLE: "obstacle", RESOURCE: "resource", HAZARD: "hazard"}
+CELL_NAMES = {
+    EMPTY: "empty",
+    OBSTACLE: "obstacle",
+    RESOURCE: "resource",
+    HAZARD: "hazard",
+    RESOURCE_B: "resource_b",
+}
 
 # Actions
 ACTION_NAMES = {0: "up", 1: "down", 2: "left", 3: "right", 4: "stay"}
@@ -55,6 +62,12 @@ class GridWorldConfig:
     n_hazards: int = 6
     resource_regen: bool = True  # resources reappear at new cells when consumed
 
+    # Multi-niche support (when n_resources_b > 0, introduces distinct Niche B resources)
+    n_resources_b: int = 0
+    resource_b_energy: float = 15.0
+    resource_b_reward: float = 2.5
+    niche_distribution: str = "uniform"  # uniform | zones
+
     # Agent
     energy_start: float = 100.0
     energy_step: float = 0.1
@@ -65,7 +78,7 @@ class GridWorldConfig:
     noise: float = 0.0  # probability an action is replaced by a random action
 
     # Observation
-    obs_mode: str = "vector"  # vector | local | full
+    obs_mode: str = "vector"  # vector | local | full | nonspatial | multi_niche | multi_niche_local
     obs_radius: int = 2
 
     # Reward
@@ -90,13 +103,15 @@ class GridWorldConfig:
             raise ValueError(f"terrain must be one of empty|random|rooms, got {self.terrain!r}")
         if not 0.0 <= self.obstacle_density < 1.0:
             raise ValueError("obstacle_density must be in [0, 1)")
-        if self.n_resources < 0 or self.n_hazards < 0:
-            raise ValueError("n_resources and n_hazards must be >= 0")
+        if self.n_resources < 0 or self.n_hazards < 0 or self.n_resources_b < 0:
+            raise ValueError("n_resources, n_resources_b and n_hazards must be >= 0")
         free = self.height * self.width
-        if self.n_resources + self.n_hazards >= free:
-            raise ValueError("n_resources + n_hazards must leave at least one free cell")
-        if self.obs_mode not in ("vector", "local", "full", "nonspatial"):
-            raise ValueError(f"obs_mode must be vector|local|full|nonspatial, got {self.obs_mode!r}")
+        if self.n_resources + self.n_resources_b + self.n_hazards >= free:
+            raise ValueError("n_resources + n_resources_b + n_hazards must leave at least one free cell")
+        if self.obs_mode not in ("vector", "local", "full", "nonspatial", "multi_niche", "multi_niche_local"):
+            raise ValueError(f"obs_mode must be vector|local|full|nonspatial|multi_niche|multi_niche_local, got {self.obs_mode!r}")
+        if self.niche_distribution not in ("uniform", "zones"):
+            raise ValueError(f"niche_distribution must be uniform|zones, got {self.niche_distribution!r}")
         if self.obs_radius < 1:
             raise ValueError("obs_radius must be >= 1")
         if self.energy_capacity <= 0:
@@ -145,6 +160,8 @@ class GridWorld(gym.Env if gym is not None else object):  # type: ignore[misc]
         self._energy = float(self.config.energy_start)
         self._steps = 0
         self._collected = 0
+        self._collected_a = 0
+        self._collected_b = 0
         self._hazard_hits = 0
         self._rng: np.random.Generator = np.random.default_rng(self.config.seed)
         self._episode_seed = self.config.seed
@@ -181,19 +198,53 @@ class GridWorld(gym.Env if gym is not None else object):  # type: ignore[misc]
             for c in range(0, cfg.width, 5):
                 self._grid[:, c] = OBSTACLE
 
-        # Carve free cells for agent + resources + hazards
+        # Carve free cells for agent + resources A/B + hazards
         free_mask = self._grid == EMPTY
         free_idx = np.flatnonzero(free_mask.ravel())
-        if free_idx.size < (cfg.n_resources + cfg.n_hazards + 1):
+        total_needed = cfg.n_resources + cfg.n_resources_b + cfg.n_hazards + 1
+        if free_idx.size < total_needed:
             raise ValueError("config leaves too few free cells after obstacle generation")
 
         rng.shuffle(free_idx)
         self._agent = np.array(np.unravel_index(free_idx[0], (cfg.height, cfg.width)), dtype=np.int64)
-        res_cells = free_idx[1 : 1 + cfg.n_resources]
-        haz_cells = free_idx[1 + cfg.n_resources : 1 + cfg.n_resources + cfg.n_hazards]
-        for i in res_cells:
+
+        if cfg.n_resources_b > 0 and cfg.niche_distribution == "zones":
+            # Zone partition: Zone A in upper half, Zone B in lower half
+            rem_idx = free_idx[1:]
+            rem_rows, _ = np.unravel_index(rem_idx, (cfg.height, cfg.width))
+            zone_a_mask = rem_rows < (cfg.height // 2)
+
+            zone_a_idx = rem_idx[zone_a_mask]
+            zone_b_idx = rem_idx[~zone_a_mask]
+
+            res_a_cells = list(zone_a_idx[: cfg.n_resources])
+            res_b_cells = list(zone_b_idx[: cfg.n_resources_b])
+            used = set(res_a_cells).union(set(res_b_cells))
+            unused = [i for i in rem_idx if i not in used]
+
+            # If either zone is short of free cells, draw from remaining
+            if len(res_a_cells) < cfg.n_resources:
+                needed = cfg.n_resources - len(res_a_cells)
+                extra = unused[:needed]
+                unused = unused[needed:]
+                res_a_cells.extend(extra)
+            if len(res_b_cells) < cfg.n_resources_b:
+                needed = cfg.n_resources_b - len(res_b_cells)
+                extra = unused[:needed]
+                unused = unused[needed:]
+                res_b_cells.extend(extra)
+            haz_cells = unused[: cfg.n_hazards]
+        else:
+            res_a_cells = list(free_idx[1 : 1 + cfg.n_resources])
+            res_b_cells = list(free_idx[1 + cfg.n_resources : 1 + cfg.n_resources + cfg.n_resources_b])
+            haz_cells = list(free_idx[1 + cfg.n_resources + cfg.n_resources_b : 1 + cfg.n_resources + cfg.n_resources_b + cfg.n_hazards])
+
+        for i in res_a_cells:
             r, c = np.unravel_index(i, (cfg.height, cfg.width))
             self._grid[r, c] = RESOURCE
+        for i in res_b_cells:
+            r, c = np.unravel_index(i, (cfg.height, cfg.width))
+            self._grid[r, c] = RESOURCE_B
         for i in haz_cells:
             r, c = np.unravel_index(i, (cfg.height, cfg.width))
             self._grid[r, c] = HAZARD
@@ -210,6 +261,8 @@ class GridWorld(gym.Env if gym is not None else object):  # type: ignore[misc]
         self._energy = float(min(self.config.energy_start, self.config.energy_capacity))
         self._steps = 0
         self._collected = 0
+        self._collected_a = 0
+        self._collected_b = 0
         self._hazard_hits = 0
         return self._observation(), self._info()
 
@@ -242,8 +295,15 @@ class GridWorld(gym.Env if gym is not None else object):  # type: ignore[misc]
             if cell == RESOURCE:
                 reward += cfg.resource_reward
                 self._collected += 1
+                self._collected_a += 1
                 self._energy = min(cfg.energy_capacity, self._energy + cfg.resource_energy)
-                self._consume_resource(nr, nc)
+                self._consume_resource(nr, nc, RESOURCE)
+            elif cell == RESOURCE_B:
+                reward += cfg.resource_b_reward
+                self._collected += 1
+                self._collected_b += 1
+                self._energy = min(cfg.energy_capacity, self._energy + cfg.resource_b_energy)
+                self._consume_resource(nr, nc, RESOURCE_B)
             elif cell == HAZARD:
                 reward -= cfg.hazard_penalty
                 self._hazard_hits += 1
@@ -260,7 +320,7 @@ class GridWorld(gym.Env if gym is not None else object):  # type: ignore[misc]
         if self._energy <= 0:
             terminated = True
             reward -= cfg.death_penalty
-        if cfg.n_resources > 0 and not cfg.resource_regen and self._resources_remaining() == 0:
+        if (cfg.n_resources + cfg.n_resources_b) > 0 and not cfg.resource_regen and self._resources_remaining() == 0:
             terminated = True
         truncated = self._steps >= cfg.max_steps
         return self._observation(), float(reward), bool(terminated), bool(truncated), self._info()
@@ -273,7 +333,7 @@ class GridWorld(gym.Env if gym is not None else object):  # type: ignore[misc]
                 if self._agent[0] == r and self._agent[1] == c:
                     row.append("@")
                 else:
-                    row.append({EMPTY: ".", OBSTACLE: "#", RESOURCE: "*", HAZARD: "x"}[int(self._grid[r, c])])
+                    row.append({EMPTY: ".", OBSTACLE: "#", RESOURCE: "*", HAZARD: "x", RESOURCE_B: "$"}[int(self._grid[r, c])])
             rows.append("".join(row))
         out = "\n".join(rows)
         if self.render_mode == "ansi":
@@ -291,20 +351,19 @@ class GridWorld(gym.Env if gym is not None else object):  # type: ignore[misc]
                 return diag[action]
         return ACTION_DELTAS[action]
 
-    def _consume_resource(self, r: int, c: int) -> None:
+    def _consume_resource(self, r: int, c: int, cell_type: int = RESOURCE) -> None:
         if self.config.resource_regen:
             free = np.argwhere(self._grid == EMPTY)
             if len(free):
                 idx = int(self._rng.integers(0, len(free)))
                 fr, fc = free[idx]
-                self._grid[fr, fc] = RESOURCE
+                self._grid[fr, fc] = cell_type
         self._grid[r, c] = EMPTY
 
     def _resources_remaining(self) -> int:
-        return int(np.count_nonzero(self._grid == RESOURCE))
+        return int(np.count_nonzero((self._grid == RESOURCE) | (self._grid == RESOURCE_B)))
 
-    def _nearest(self, cell_type: int) -> tuple[float, float, float]:
-        cells = np.argwhere(self._grid == cell_type)
+    def _nearest_cells(self, cells: np.ndarray) -> tuple[float, float, float]:
         if len(cells) == 0:
             return 0.0, 0.0, 0.0
         d = cells - self._agent
@@ -312,6 +371,10 @@ class GridWorld(gym.Env if gym is not None else object):  # type: ignore[misc]
         i = int(np.argmin(dist))
         dr, dc = d[i]
         return float(np.sign(dr)), float(np.sign(dc)), float(dist[i])
+
+    def _nearest(self, cell_type: int) -> tuple[float, float, float]:
+        cells = np.argwhere(self._grid == cell_type)
+        return self._nearest_cells(cells)
 
     def _nearest_within(self, cell_type: int, radius: int) -> tuple[float, float, float]:
         """Nearest target only if within sensor radius (limited-range sensor)."""
@@ -342,23 +405,37 @@ class GridWorld(gym.Env if gym is not None else object):  # type: ignore[misc]
         bearings, which is what makes held-out generalisation measurable. The
         control interface is fixed across morphologies; ``obs_mode`` only changes
         sensor fidelity:
-          * ``vector``     — full global bearings (best sensor)
-          * ``local``      — bearings only within ``obs_radius`` (limited range)
-          * ``nonspatial`` — no resource/hazard bearings at all (poor sensor)
+          * ``vector``             — full global bearings (best sensor)
+          * ``local``              — bearings only within ``obs_radius`` (limited range)
+          * ``nonspatial``         — no resource/hazard bearings at all (poor sensor)
+          * ``multi_niche``        — egocentric bearings to both Niche A and Niche B
+          * ``multi_niche_local``  — limited-range bearings to both Niche A and Niche B
         """
         cfg = self.config
         en = float(self._energy) / cfg.energy_capacity
         scale = float(max(cfg.height, cfg.width))
-        if cfg.obs_mode == "vector":
-            res = self._nearest(RESOURCE)
+        if cfg.obs_mode == "multi_niche":
+            res_a = self._nearest(RESOURCE)
+            res_b = self._nearest(RESOURCE_B)
+            return np.array([en, res_a[0], res_a[1], res_a[2] / scale, res_b[0], res_b[1], res_b[2] / scale], dtype=np.float32)
+        elif cfg.obs_mode == "multi_niche_local":
+            res_a = self._nearest_within(RESOURCE, cfg.obs_radius)
+            res_b = self._nearest_within(RESOURCE_B, cfg.obs_radius)
+            return np.array([en, res_a[0], res_a[1], res_a[2] / scale, res_b[0], res_b[1], res_b[2] / scale], dtype=np.float32)
+        elif cfg.obs_mode == "vector":
+            if cfg.n_resources_b > 0:
+                cells = np.argwhere((self._grid == RESOURCE) | (self._grid == RESOURCE_B))
+                res = self._nearest_cells(cells)
+            else:
+                res = self._nearest(RESOURCE)
             haz = self._nearest(HAZARD)
+            return np.array([en, res[0], res[1], res[2] / scale, haz[0], haz[1], haz[2] / scale], dtype=np.float32)
         elif cfg.obs_mode == "local":
             res = self._nearest_within(RESOURCE, cfg.obs_radius)
             haz = self._nearest_within(HAZARD, cfg.obs_radius)
+            return np.array([en, res[0], res[1], res[2] / scale, haz[0], haz[1], haz[2] / scale], dtype=np.float32)
         else:  # nonspatial
-            res = (0.0, 0.0, 0.0)
-            haz = (0.0, 0.0, 0.0)
-        return np.array([en, res[0], res[1], res[2] / scale, haz[0], haz[1], haz[2] / scale], dtype=np.float32)
+            return np.array([en, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
 
     @property
     def observation_size(self) -> int:
@@ -381,6 +458,18 @@ class GridWorld(gym.Env if gym is not None else object):  # type: ignore[misc]
 
     def _descriptor(self) -> np.ndarray:
         """Behavioural descriptor for novelty search / quality-diversity."""
+        if self.config.n_resources_b > 0:
+            hazard_rate = float(self._hazard_hits) / max(1, self._steps)
+            return np.array(
+                [
+                    float(self._collected_a),
+                    float(self._collected_b),
+                    hazard_rate,
+                    float(self._steps) / self.config.max_steps,
+                    self._energy / self.config.energy_capacity,
+                ],
+                dtype=np.float32,
+            )
         traversable = max(1, int(np.count_nonzero(self._grid != OBSTACLE)))
         resources_collected = float(self._collected)
         hazard_rate = float(self._hazard_hits) / max(1, self._steps)
@@ -395,6 +484,8 @@ class GridWorld(gym.Env if gym is not None else object):  # type: ignore[misc]
             "energy": float(self._energy),
             "steps": int(self._steps),
             "collected": int(self._collected),
+            "collected_a": int(self._collected_a),
+            "collected_b": int(self._collected_b),
             "hazard_hits": int(self._hazard_hits),
             "descriptor": self._descriptor().tolist(),
             "config_hash": self.config.config_hash(),
@@ -413,6 +504,8 @@ class GridWorld(gym.Env if gym is not None else object):  # type: ignore[misc]
             "energy": float(self._energy),
             "steps": int(self._steps),
             "collected": int(self._collected),
+            "collected_a": int(self._collected_a),
+            "collected_b": int(self._collected_b),
             "hazard_hits": int(self._hazard_hits),
             "episode_seed": int(self._episode_seed),
             "rng_state": _rng_to_list(self._rng),
@@ -427,6 +520,8 @@ class GridWorld(gym.Env if gym is not None else object):  # type: ignore[misc]
         self._energy = float(state["energy"])
         self._steps = int(state["steps"])
         self._collected = int(state["collected"])
+        self._collected_a = int(state.get("collected_a", self._collected))
+        self._collected_b = int(state.get("collected_b", 0))
         self._hazard_hits = int(state["hazard_hits"])
         self._episode_seed = int(state["episode_seed"])
         self._rng = _rng_from_list(state["rng_state"])

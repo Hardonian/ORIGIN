@@ -16,7 +16,7 @@ import numpy as np
 
 from origin.environments.gridworld import GridWorldConfig
 
-VALID_OBS_MODES = ("vector", "local", "nonspatial")
+VALID_OBS_MODES = ("vector", "local", "nonspatial", "multi_niche", "multi_niche_local")
 
 
 @dataclass
@@ -59,7 +59,12 @@ class Morphology:
     def mutate(self, rng: np.random.Generator, strength: float = 1.0) -> Morphology:
         m = Morphology.from_dict(self.to_dict())
         if rng.random() < 0.25 * strength:
-            m.obs_mode = VALID_OBS_MODES[int(rng.integers(0, len(VALID_OBS_MODES)))]
+            modes = (
+                ("multi_niche", "multi_niche_local", "nonspatial")
+                if self.obs_mode.startswith("multi_niche")
+                else ("vector", "local", "nonspatial")
+            )
+            m.obs_mode = modes[int(rng.integers(0, len(modes)))]
         if rng.random() < 0.4 * strength:
             m.obs_radius = int(np.clip(m.obs_radius + int(rng.integers(-1, 2)), 1, 5))
         if rng.random() < 0.4 * strength:

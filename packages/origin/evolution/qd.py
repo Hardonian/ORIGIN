@@ -84,10 +84,22 @@ def map_elites(
     """
     rng = np.random.default_rng(seed)
     if bounds is None:
-        bounds = [(0.0, max(4.0, float(base_env.n_resources))), (0.0, 1.0)]
+        if getattr(base_env, "n_resources_b", 0) > 0 and desc_dims == (0, 1):
+            bounds = [
+                (0.0, max(4.0, float(getattr(base_env, "n_resources", 6) * 2))),
+                (0.0, max(4.0, float(getattr(base_env, "n_resources_b", 6) * 2))),
+            ]
+        else:
+            bounds = [(0.0, max(4.0, float(base_env.n_resources))), (0.0, 1.0)]
     archive = Archive(grid_shape, desc_dims, bounds)
     history: list[dict[str, Any]] = []
     all_desc: list[list[float]] = []
+
+    init_morph = (
+        Morphology(obs_mode="multi_niche")
+        if getattr(base_env, "obs_mode", "").startswith("multi_niche")
+        else Morphology()
+    )
 
     it = 0
     while it < max_iterations and not evaluator.exhausted:
@@ -97,7 +109,7 @@ def map_elites(
                 parent = archive.random_elite(rng)
                 new_orgs.append(parent.mutate(rng, base_env, weight_rate=mutation_rate, weight_scale=mutation_scale, morph_strength=morph_strength))
             else:
-                new_orgs.append(Organism.random(Morphology(), base_env, rng, hidden=hidden))
+                new_orgs.append(Organism.random(init_morph, base_env, rng, hidden=hidden))
         added = 0
         for org in new_orgs:
             fit, desc, _ = evaluator.evaluate_organism(org)

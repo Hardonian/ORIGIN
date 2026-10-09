@@ -8,7 +8,14 @@ from __future__ import annotations
 
 import numpy as np
 
-from origin.environments.gridworld import ACTION_DELTAS, HAZARD, OBSTACLE, RESOURCE, GridWorld
+from origin.environments.gridworld import (
+    ACTION_DELTAS,
+    HAZARD,
+    OBSTACLE,
+    RESOURCE,
+    RESOURCE_B,
+    GridWorld,
+)
 
 
 class RandomPolicy:
@@ -61,7 +68,7 @@ class HeuristicPolicy:
         goal: tuple[int, int] | None = None
         while q:
             cur = q.popleft()
-            if int(grid[cur[0], cur[1]]) == RESOURCE:
+            if int(grid[cur[0], cur[1]]) in (RESOURCE, RESOURCE_B):
                 goal = cur
                 break
             for dr, dc in ACTION_DELTAS.values():

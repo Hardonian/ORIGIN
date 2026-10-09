@@ -29,3 +29,4 @@ def test_probe_writes_explicit_evidence_when_pybullet_is_unavailable(tmp_path, m
     assert report["acceptance"]["minimum_forward_gain_m"] == 0.05
     assert "embodied" in report["acceptance"]["command"]
     assert "UNAVAILABLE" in capsys.readouterr().out
+    assert not output.with_name(f".{output.name}.tmp").exists()
