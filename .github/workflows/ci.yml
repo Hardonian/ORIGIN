@@ -115,7 +115,7 @@ jobs:
       - run: uv venv --python 3.12 --clear .venv
       - run: uv pip install -e ".[dev]" --python .venv/bin/python
       - name: Install Playwright Chromium
-        run: .venv/bin/python -m playwright install --with-deps chromium
+        run: .venv/bin/python -m playwright install chromium
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
