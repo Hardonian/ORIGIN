@@ -10,6 +10,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import yaml
+
 REPO = Path(__file__).resolve().parents[1]
 PKG = REPO / "packages" / "origin"
 
@@ -76,3 +78,17 @@ def test_ci_workflow_has_no_plaintext_secrets():
         text = ci.read_text()
         # secrets must be referenced via ${{ secrets.* }}, never inlined
         assert not re.search(r"[\"'](ghp_|sk-|AKIA)", text)
+
+
+def test_ci_core_jobs_are_portable_and_type_checking_is_required():
+    """Core quality gates must not depend on the specialist physics runner."""
+    ci = REPO / ".github" / "workflows" / "ci.yml"
+    workflow = yaml.safe_load(ci.read_text(encoding="utf-8"))
+    jobs = workflow["jobs"]
+
+    for name in ("guard", "python", "security", "frontend", "e2e"):
+        assert jobs[name]["runs-on"] == "ubuntu-latest"
+    assert jobs["embodied"]["runs-on"] == ["self-hosted", "epyc"]
+
+    mypy_step = next(step for step in jobs["python"]["steps"] if step.get("name") == "Mypy (types)")
+    assert "continue-on-error" not in mypy_step

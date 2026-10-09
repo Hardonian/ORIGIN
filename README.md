@@ -87,9 +87,10 @@ docker compose -f infra/docker-compose.yml --profile calibration run --rm calibr
 # /origin/runs/embodied-calibration.json
 ```
 
-GitHub Actions is configured to run this PyBullet regression suite and
-calibration gate on Linux for every pull request; a failed or unavailable probe
-cannot be mistaken for a successful embodied result.
+GitHub Actions runs guard, Python, security, frontend, and browser checks on
+GitHub-hosted Linux. The PyBullet regression suite and calibration gate run on
+the dedicated Linux physics runner for every pull request; a failed or
+unavailable probe cannot be mistaken for a successful embodied result.
 
 Run system diagnostics:
 
