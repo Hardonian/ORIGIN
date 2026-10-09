@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -175,6 +177,37 @@ def test_environment_manifest_has_git_and_hardware():
     for key in ("python", "cpu_count", "packages", "git_sha", "platform"):
         assert key in m
     assert m["cpu_count"] >= 1
+
+
+def test_runner_module_entrypoint_has_no_preimport_warning():
+    """Package-level runner exports must not pre-import the ``-m`` target."""
+    completed = subprocess.run(
+        [sys.executable, "-m", "origin.experiments.runner", "--help"],
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert "found in sys.modules" not in completed.stderr
+
+
+def test_package_runner_exports_remain_available():
+    """The lazy import retains the supported package-level convenience API."""
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "from origin.experiments import ALGORITHMS, run_experiment, run_trial, validate_config; "
+                "assert 'map_elites' in ALGORITHMS; "
+                "assert all(callable(value) for value in (run_experiment, run_trial, validate_config))"
+            ),
+        ],
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+    assert completed.returncode == 0, completed.stderr
 
 
 def test_grid_adaptation_never_trains_on_test_seeds(monkeypatch):
