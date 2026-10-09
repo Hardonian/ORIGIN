@@ -188,11 +188,12 @@ def test_world_viewer_inspects_embodied_body_plan(page):
     _select_experiment(page, exp_id)
     has_trajectory = bool(plan["has_recorded_trajectory"])
     mode_label = "PyBullet Replay" if has_trajectory else "schematic, not a physics replay"
-    body = _wait_for_text(page, mode_label)
+    _wait_for_text(page, mode_label)
+    body = _wait_for_text(page, "LONGITUDINAL GRIP")
 
     assert "Calibration gate" in body
     assert "Latest captured evidence" in body
-    assert "longitudinal grip" in body
+    assert "LONGITUDINAL GRIP" in body
     assert plan["body"]["joint_axis"] in body
     if has_trajectory:
         assert "Physics Trajectory Replay" in body
