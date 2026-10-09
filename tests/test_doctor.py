@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from origin.doctor import (
+    check_embodied_calibration,
     check_core_dependencies,
     check_optional_extensions,
     check_store,
@@ -39,6 +40,21 @@ def test_doctor_store_check(tmp_path):
     assert rep["exists"] is True
     assert rep["initialized"] is True
     assert rep["experiments"] == 0
+
+
+def test_doctor_embodied_calibration_is_fail_closed(tmp_path):
+    rep = check_embodied_calibration(tmp_path / "runs")
+    assert rep["evidence"]["status"] == "not_run"
+    assert rep["evidence"]["passed"] is False
+
+    runs = tmp_path / "runs"
+    runs.mkdir()
+    (runs / "embodied-calibration.json").write_text(
+        '{"status":"passed","passed":true,"acceptance":{"minimum_forward_gain_m":0.05,"best_forward_gain_m":0.06},"gaits":[{"program":"wave_a"}]}'
+    )
+    rep = check_embodied_calibration(runs)
+    assert rep["evidence"]["passed"] is True
+    assert "passed" in rep["next_action"].lower()
 
 
 def test_doctor_main_cli(tmp_path, capsys):

@@ -93,6 +93,39 @@ def check_store(store_path: str | Path) -> dict[str, Any]:
         return {"exists": True, "error": str(exc)}
 
 
+def check_embodied_calibration(store_path: str | Path) -> dict[str, Any]:
+    """Report whether this host has verified crawler calibration evidence.
+
+    This check has no side effects: in particular, it does not create a store or
+    run a physics simulation.  It is safe to run before deciding whether a
+    calibration job can be scheduled.
+    """
+    from origin.experiments.calibration import read_calibration_evidence
+
+    evidence = read_calibration_evidence(store_path)
+    try:
+        pybullet = importlib.import_module("pybullet")
+        engine = {
+            "available": True,
+            "version": str(getattr(pybullet, "__version__", "installed")),
+        }
+    except ImportError:
+        engine = {"available": False, "version": None}
+
+    if evidence["passed"]:
+        next_action = "Calibration evidence passed; retain this artifact with the corresponding campaign."
+    elif not engine["available"]:
+        next_action = "Use a supported host with PyBullet installed, then run the calibration probe."
+    elif evidence["status"] == "failed":
+        next_action = "Inspect the recorded gait gains; do not start a transfer campaign until the probe passes."
+    elif evidence["status"] == "invalid":
+        next_action = "Replace the malformed evidence by rerunning the calibration probe."
+    else:
+        next_action = "Run the calibration probe before starting an embodied transfer campaign."
+
+    return {"engine": engine, "evidence": evidence, "next_action": next_action}
+
+
 def check_api_server(host: str = "127.0.0.1", port: int = 8788) -> dict[str, Any]:
     url = f"http://{host}:{port}/api/capabilities"
     if not url.startswith("http://"):
@@ -143,6 +176,7 @@ def main(argv: list[str] | None = None) -> int:
     core_deps = check_core_dependencies()
     opt_deps = check_optional_extensions()
     store_info = check_store(args.store)
+    embodied_info = check_embodied_calibration(args.store)
     api_info = check_api_server()
     ui_info = check_lab_ui(repo_root)
 
@@ -160,6 +194,7 @@ def main(argv: list[str] | None = None) -> int:
         "core_dependencies": [{"name": n, "ok": ok, "version": v} for n, ok, v in core_deps],
         "optional_extensions": [{"name": n, "ok": ok, "details": d} for n, ok, d in opt_deps],
         "store": store_info,
+        "embodied_calibration": embodied_info,
         "api_service": api_info,
         "lab_ui": ui_info,
     }
@@ -200,6 +235,16 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  [ ] Store Location  : {Path(args.store).resolve()} (not initialized yet)")
     else:
         print(f"  [ ] Store Location  : {Path(args.store).resolve()} (directory created upon first run)")
+    print()
+
+    print("--- Embodied Calibration --------------------------------------")
+    engine = embodied_info["engine"]
+    evidence = embodied_info["evidence"]
+    engine_icon = "[+]" if engine["available"] else "[ ]"
+    evidence_icon = "[+]" if evidence["passed"] else "[ ]"
+    print(f"  {engine_icon} PyBullet Engine   : {'available' if engine['available'] else 'not installed'}")
+    print(f"  {evidence_icon} Probe Evidence   : {evidence['status']}")
+    print(f"      - {embodied_info['next_action']}")
     print()
 
     print("--- Research Lab UI & API -------------------------------------")
