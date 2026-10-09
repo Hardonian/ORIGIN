@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import json
 import statistics as st
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -53,24 +54,31 @@ def main() -> int:
     ap.add_argument("--store", default="runs")
     ap.add_argument("--experiment", required=True)
     ap.add_argument("--bootstrap-seed", type=int, default=20261012)
+    ap.add_argument("--out", default=None, help="write report output to a markdown file")
     args = ap.parse_args()
+
+    lines: list[str] = []
+
+    def emit(text: str = "") -> None:
+        lines.append(text)
+        print(text)
 
     store = Store(args.store)
     rows = _load(store, args.experiment)
     if not rows:
-        print(f"no completed trials for experiment {args.experiment}")
+        emit(f"no completed trials for experiment {args.experiment}")
         return 1
 
     by_algo: dict[str, list[dict[str, Any]]] = {}
     for r in rows:
         by_algo.setdefault(r["algorithm"], []).append(r)
 
-    print(f"experiment {args.experiment}: {len(rows)} completed trials, "
-          f"{len(by_algo)} methods\n")
+    emit(f"experiment {args.experiment}: {len(rows)} completed trials, "
+         f"{len(by_algo)} methods\n")
 
-    print("== held-out test performance (unseen seeds) ==")
-    print(f"{'method':22s} {'n':>2s} {'mean':>8s} {'sd':>7s} {'travelled':>10s} "
-          f"{'fall':>6s} {'success':>8s} {'train inter':>11s} {'eval inter':>10s}")
+    emit("== held-out test performance (unseen seeds) ==")
+    emit(f"{'method':22s} {'n':>2s} {'mean':>8s} {'sd':>7s} {'travelled':>10s} "
+         f"{'fall':>6s} {'success':>8s} {'train inter':>11s} {'eval inter':>10s}")
     for algo, rs in sorted(by_algo.items(), key=lambda kv: -np.mean([r["test_reward"] or 0 for r in kv[1]])):
         vals = [r["test_reward"] for r in rs if r["test_reward"] is not None]
         trav = [r["travelled"] for r in rs if r["travelled"] is not None]
@@ -79,12 +87,12 @@ def main() -> int:
         inter = [r["interactions"] for r in rs]
         ev_inter = [r["eval_interactions"] for r in rs if r.get("eval_interactions") is not None]
         sd = st.stdev(vals) if len(vals) > 1 else 0.0
-        print(f"{algo:22s} {len(vals):2d} {np.mean(vals):8.3f} {sd:7.3f} "
-              f"{(np.mean(trav) if trav else float('nan')):10.4f} "
-              f"{(np.mean(fall) if fall else float('nan')):6.2f} "
-              f"{(np.mean(succ) if succ else float('nan')):8.2f} "
-              f"{int(np.mean(inter)):11d} "
-              f"{(int(np.mean(ev_inter)) if ev_inter else float('nan')):10.0f}")
+        emit(f"{algo:22s} {len(vals):2d} {np.mean(vals):8.3f} {sd:7.3f} "
+             f"{(np.mean(trav) if trav else float('nan')):10.4f} "
+             f"{(np.mean(fall) if fall else float('nan')):6.2f} "
+             f"{(np.mean(succ) if succ else float('nan')):8.2f} "
+             f"{int(np.mean(inter)):11d} "
+             f"{(int(np.mean(ev_inter)) if ev_inter else float('nan')):10.0f}")
 
     # ---- transfer: zero-shot vs adapted, per body plan -------------------
     morph_names: list[str] = []
@@ -93,9 +101,9 @@ def main() -> int:
             if entry.get("kind") == "morphology" and name not in morph_names:
                 morph_names.append(name)
     if morph_names:
-        print("\n== transfer across physically distinct bodies ==")
-        print(f"{'body plan':18s} {'zero-shot':>10s} {'adapted':>9s} {'gain':>8s} "
-              f"{'zs fall':>8s} {'ad fall':>8s} {'n':>3s}")
+        emit("\n== transfer across physically distinct bodies ==")
+        emit(f"{'body plan':18s} {'zero-shot':>10s} {'adapted':>9s} {'gain':>8s} "
+             f"{'zs fall':>8s} {'ad fall':>8s} {'n':>3s}")
         for name in sorted(morph_names):
             zs, ad, gz, fz, fa = [], [], [], [], []
             for r in rows:
@@ -109,25 +117,25 @@ def main() -> int:
                     fa.append(e.get("adapted_fall_rate", float("nan")))
                     if "adaptation_gain" in e:
                         gz.append(e["adaptation_gain"])
-            print(f"{name:18s} {np.mean(zs):10.3f} "
-                  f"{(np.mean(ad) if ad else float('nan')):9.3f} "
-                  f"{(np.mean(gz) if gz else float('nan')):8.3f} "
-                  f"{np.nanmean(fz):8.2f} {(np.nanmean(fa) if fa else float('nan')):8.2f} {len(zs):3d}")
+            emit(f"{name:18s} {np.mean(zs):10.3f} "
+                 f"{(np.mean(ad) if ad else float('nan')):9.3f} "
+                 f"{(np.mean(gz) if gz else float('nan')):8.3f} "
+                 f"{np.nanmean(fz):8.2f} {(np.nanmean(fa) if fa else float('nan')):8.2f} {len(zs):3d}")
         all_zs = [e["zero_shot_mean_reward"] for r in rows for e in r["transfer"].values()
                   if e.get("kind") == "morphology" and "zero_shot_mean_reward" in e]
         all_ad = [e["adapted_mean_reward"] for r in rows for e in r["transfer"].values()
                   if e.get("kind") == "morphology" and "adapted_mean_reward" in e]
-        print(f"{'MEAN':18s} {np.mean(all_zs):10.3f} {(np.mean(all_ad) if all_ad else float('nan')):9.3f}")
+        emit(f"{'MEAN':18s} {np.mean(all_zs):10.3f} {(np.mean(all_ad) if all_ad else float('nan')):9.3f}")
 
     pert_names = [n for r in rows for n, e in r["transfer"].items() if e.get("kind") == "perturbation"]
     if pert_names:
-        print("\n== environmental perturbations (zero-shot) ==")
+        emit("\n== environmental perturbations (zero-shot) ==")
         for name in sorted(set(pert_names)):
             vals = [e["zero_shot_mean_reward"] for r in rows
                     for n, e in r["transfer"].items()
                     if n == name and e.get("kind") == "perturbation" and "zero_shot_mean_reward" in e]
             if vals:
-                print(f"  {name:18s} mean={np.mean(vals):+.3f} n={len(vals)}")
+                emit(f"  {name:18s} mean={np.mean(vals):+.3f} n={len(vals)}")
 
     # ---- paired algorithm comparison on shared seeds ---------------------
     # Explicitly the quality-diversity vs fixed-objective comparison (the embodied
@@ -145,20 +153,27 @@ def main() -> int:
             diffs = (b_vals - a_vals).tolist()
             mde = min_detectable_effect(diffs)
             _, pval = wilcoxon_signed_rank(b_vals, a_vals)
-            print(f"\n== paired comparison on {len(shared)} shared seeds ==")
-            print(f"  {a2} - {a1}: {diff.point:+.3f}  95% paired bootstrap CI [{diff.lo:+.3f}, {diff.hi:+.3f}]")
-            print(f"  Wilcoxon signed-rank p = {pval:.4f}")
-            print(f"  minimum detectable effect at this n = {mde:.3f} "
-                  f"(observed |diff| = {abs(diff.point):.3f})")
+            emit(f"\n== paired comparison on {len(shared)} shared seeds ==")
+            emit(f"  {a2} - {a1}: {diff.point:+.3f}  95% paired bootstrap CI [{diff.lo:+.3f}, {diff.hi:+.3f}]")
+            emit(f"  Wilcoxon signed-rank p = {pval:.4f}")
+            emit(f"  minimum detectable effect at this n = {mde:.3f} "
+                 f"(observed |diff| = {abs(diff.point):.3f})")
             if diff.lo > 0 or diff.hi < 0:
-                print("  -> CI excludes 0: a difference is supported at this n (still preliminary).")
+                emit("  -> CI excludes 0: a difference is supported at this n (still preliminary).")
             else:
-                print("  -> CI spans 0 at this sample size: NOT statistically resolved.")
+                emit("  -> CI spans 0 at this sample size: NOT statistically resolved.")
 
-    print("\n== reproducibility ==")
+    emit("\n== reproducibility ==")
     exp = store.experiment(args.experiment) or {}
-    print(f"  config_hash={exp.get('config_hash')} git_sha={exp.get('git_sha')}")
-    print("  rerun: .venv/bin/origin-run --config configs/embodied_transfer.json --store runs --jobs 6")
+    emit(f"  config_hash={exp.get('config_hash')} git_sha={exp.get('git_sha')}")
+    emit("  rerun: .venv/bin/origin-run --config configs/embodied_transfer_v3.json --store runs --jobs 32")
+
+    if args.out:
+        out_p = Path(args.out)
+        out_p.parent.mkdir(parents=True, exist_ok=True)
+        out_p.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        emit(f"\nwrote report to {args.out}")
+
     return 0
 
 

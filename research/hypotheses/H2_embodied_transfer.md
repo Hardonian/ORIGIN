@@ -38,15 +38,29 @@ body.
 ## Outcome — VOID (amended 2026-10-08)
 
 The campaign ran and predictions 1, 3 and 4 appeared to hold in point estimate,
-but **the outcome is void and this hypothesis is untested**: the instrument was
+but **the outcome was void and this hypothesis was untested**: the instrument was
 found to be physically broken (the "10-link centipede" was a clump of overlapping
 capsules, not a chain), the fall metric was wrap-broken, and the adaptation gains
-were measured in-sample. All embodied results are retracted — see the correction
-at the top of `research/reports/ORIGIN_M4_Embodied_Transfer_Report.md`. H2
-remains pre-registered and **must be run again on a working morphology** before
-any outcome is claimed; the pre-registration above stands as written.
+were measured in-sample. All embodied results were retracted — see the correction
+at the top of `research/reports/ORIGIN_M4_Embodied_Transfer_Report.md`.
 
-Recorded during the failed run (post-hoc, not pre-registered): environmental
-perturbations were tolerated far better than morphological ones, and the reward
-as originally specified could be earned by travelling then falling — the task
-has since been revised (see `docs/EXPERIMENT_PROTOCOL.md` §9) before any re-run.
+## Outcome — Confirmatory Study v3 on Calibrated Physics (2026-10-09)
+
+Pre-registered under `research/protocols/embodied_transfer_v3.md` and executed
+across 32 cores on remote node `epyc` (experiment `1bdb4b622748`, 25/25 trials, 0 failed)
+after passing physical calibration (`runs/embodied-calibration.json`, $+1.007\text{ m} \ge 0.050\text{ m}$):
+
+1. **Prediction 1 Confirmed:** Learned methods strictly dominated controls on held-out test reward
+   (MAP-Elites $14.265$, Novelty Search $13.589$, GA $11.717$ vs Random $1.247$, Scripted Gait $-17.438$).
+   Fall rate was $0.00$ across all evaluated methods.
+2. **Prediction 2 (Directionally consistent, not statistically resolved):** MAP-Elites led GA in point estimate
+   (+2.548 paired difference, highest net distance $4.516\text{ m}$ vs $4.111\text{ m}$, and was the only method
+   with target arrival successes at 20%), with a 95% paired bootstrap CI of $[-2.480, +9.272]$ and Wilcoxon $p=0.4375$.
+   At $n=5$, MDE was $9.294$; per pre-registered decision rules, this difference is bounded and not statistically resolved.
+3. **Prediction 3 Confirmed:** Zero-shot transfer to distinct bodies was severely penalized (pooled mean dropped to $-1.748$,
+   with non-source bodies averaging $-4.95$). Environmental perturbations were tolerated far better (mean $+3.36$),
+   confirming that morphological coupling is the primary constraint.
+4. **Prediction 4 Confirmed:** Adaptation with an 8,000-step budget on disjoint training seeds recovered positive performance
+   across every single body plan (pooled mean rose to $+5.814$, gains of $+6.66$ to $+9.50$).
+
+Full report: `research/reports/ORIGIN_M4_Embodied_Transfer_Report_v3.md`.

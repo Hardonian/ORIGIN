@@ -13,7 +13,8 @@
 | H1.MN multi-niche pilot (`f8f4c952a5c3`) | **Exploratory / archival** | Describe as an early instrument check only. | It predates strict batch reservation and a uniquely fixed ecological-shock aggregation. It cannot decide H1.MN; use v3. |
 | Single-niche studies (pilot, powered, paired v2, paired v3) | **Legacy descriptive** | Historical behavioral observations, with their original limitations stated. | Do not cite their interaction/compute totals as strict-cap evidence or their pre-2026-10-08 adaptation gains as held-out transfer evidence. Use the v4 strict-cap replication for current base-task and compute claims. |
 | Pre-2026-10-08 adaptation gains | **Withdrawn for transfer inference** | None as held-out transfer evidence. | Adaptation used a subset of held-out test seeds and was scored on those same seeds. Re-measure using disjoint adaptation and evaluation seeds. |
-| Embodied transfer v2 | **Retracted** | None as empirical evidence. | The physical instrument failed calibration; see `research/reports/ORIGIN_M4_Embodied_Transfer_Report.md`. A supported-PyBullet acceptance probe and fresh pre-registered campaign are required. |
+| Embodied transfer v3 (`1bdb4b622748`) | **Confirmatory** | Cite the registered paired comparison and transfer gains across physical bodies on calibrated physics. | `research/reports/H2_embodied_v3_analysis.md` and `research/reports/ORIGIN_M4_Embodied_Transfer_Report_v3.md` are authoritative. Physical calibration passed (`runs/embodied-calibration.json`). |
+| Embodied transfer v2 | **Retracted** | None as empirical evidence. | The physical instrument failed calibration; see `research/reports/ORIGIN_M4_Embodied_Transfer_Report.md`. Replaced by v3. |
 | Deterministic smoke fixture | **Fixture** | Test/reproducibility checks only. | Never use as research evidence. |
 
 ## Generation policy
