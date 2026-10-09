@@ -36,7 +36,7 @@ export default function BenchmarkPage() {
     return vars;
   }, [cmp]);
 
-  const algos = cmp ? Object.keys(cmp.comparison) : [];
+  const algos = useMemo(() => Object.keys(cmp?.comparison ?? {}), [cmp]);
 
   const filteredVariants = useMemo(() => {
     const list = [...variants].sort();

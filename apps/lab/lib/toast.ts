@@ -20,3 +20,10 @@ export function showToast(message: string, type: ToastType = "info"): void {
     window.dispatchEvent(event);
   }
 }
+
+export const toast = {
+  success: (msg: string) => showToast(msg, "success"),
+  error: (msg: string) => showToast(msg, "error"),
+  info: (msg: string) => showToast(msg, "info"),
+  warn: (msg: string) => showToast(msg, "warn"),
+};

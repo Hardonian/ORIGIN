@@ -91,6 +91,16 @@ def _wait_for_text(page, needle: str) -> str:
     return page.inner_text("body")
 
 
+def _select_experiment(page, experiment_id: str) -> None:
+    """Wait for the asynchronously loaded experiment selector before using it."""
+    page.wait_for_function(
+        "id => [...document.querySelector('select')?.options ?? []].some(o => o.value === id)",
+        arg=experiment_id,
+        timeout=WAIT_MS,
+    )
+    page.locator("select").first.select_option(experiment_id)
+
+
 # --------------------------------------------------------------------------- #
 def test_overview_renders_live_experiment(page):
     """The overview must show the persisted experiment and its method comparison."""
@@ -147,7 +157,7 @@ def test_world_viewer_renders_grid_and_trajectory(page):
     _wait_for_text(page, "World viewer")
     # The page defaults to the newest experiment, which may be one the grid-only
     # viewer cannot render; drive the selector to a grid experiment explicitly.
-    page.locator("select").first.select_option(exp_id)
+    _select_experiment(page, exp_id)
     page.wait_for_selector("div.cell", timeout=WAIT_MS)
     cells = page.locator("div.cell").count()
 
@@ -172,7 +182,7 @@ def test_world_viewer_inspects_embodied_body_plan(page):
 
     plan = _api(f"/api/morphology?experiment={exp_id}&trial={trial['id']}")
     _goto(page, "/world")
-    page.locator("select").first.select_option(exp_id)
+    _select_experiment(page, exp_id)
     body = _wait_for_text(page, "schematic, not a physics replay")
 
     assert "Calibration gate" in body
@@ -242,7 +252,7 @@ def test_evolution_page_renders_distribution(page):
     _goto(page, "/evolution")
     body = _wait_for_text(page, "Evolution explorer")
     assert "Fitness distributions" in body
-    page.locator("select").first.select_option(exp_id)
+    _select_experiment(page, exp_id)
     body = page.inner_text("body")
     assert "seed" in body or "mean best fitness" in body or "No trials" in body
 

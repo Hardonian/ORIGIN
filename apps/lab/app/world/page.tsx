@@ -373,7 +373,7 @@ export default function WorldPage() {
             <div>
               <span>Current Step</span>
               <strong style={{ color: "var(--accent)" }}>
-                {step} of {world.trajectory.length}
+                step {step} / {world.trajectory.length}
               </strong>
             </div>
             <div>
@@ -484,6 +484,9 @@ export default function WorldPage() {
             <div>
               <strong>{plan.body.morphology}</strong> · {plan.body.segments.length} capsules ·{" "}
               {plan.body.joints.length} {plan.body.joint_axis} joints
+              <span className="badge running" style={{ marginLeft: 8 }}>
+                schematic, not a physics replay
+              </span>
             </div>
             <div className="row">
               <button

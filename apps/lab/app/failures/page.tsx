@@ -76,7 +76,7 @@ export default function FailuresPage() {
           <div style={{ fontSize: 32, marginBottom: 8 }}>🛡️</div>
           <h2 style={{ margin: "0 0 6px 0", color: "#34d399" }}>Zero Failures Recorded</h2>
           <p className="muted" style={{ margin: 0 }}>
-            All executed trials across active experiments completed nominally without runtime halts or timeouts.
+            No failed trials. All executed trials across active experiments completed nominally without runtime halts or timeouts.
           </p>
         </div>
       )}

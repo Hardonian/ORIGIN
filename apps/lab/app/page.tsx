@@ -78,7 +78,7 @@ export default function OverviewPage() {
       {/* Header & Global Stats */}
       <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18 }}>
         <div>
-          <h1>Research Lab Overview</h1>
+          <h1>Research overview</h1>
           <p className="sub" style={{ margin: 0 }}>
             Evolutionary intelligence benchmark, real-time campaign telemetry, and held-out evaluation.
           </p>
