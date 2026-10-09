@@ -14,8 +14,6 @@ import math
 from pathlib import Path
 from typing import Any
 
-import numpy as np
-
 from origin.environments.embodied import ACTION_NAMES, EmbodiedConfig, EmbodiedCreature
 from origin.experiments.store import Store
 from origin.organisms import Organism
