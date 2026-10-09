@@ -14,12 +14,31 @@
 | 3 | Learning & evolution baselines | **done** | GA, novelty search, MAP-Elites, REINFORCE all run under a shared interaction budget |
 | 4 | Embodied intelligence / morphology transfer | **INVALIDATED — redesigned, awaiting physical acceptance** | The instrument was physically broken (links clumped at one point, capsules vertical) and three measurement defects made every number untrustworthy. All M4 results **retracted** — see the correction at the top of `research/reports/ORIGIN_M4_Embodied_Transfer_Report.md`. The new yaw-jointed, anisotropic-friction crawler has regression coverage, a fail-closed calibration probe, Linux CI coverage, and a containerized evidence path, but it has **not yet passed that probe on a supported PyBullet host**; no embodied claim is restored. |
 | 5 | Experiment orchestration | **done** | `origin.experiments.runner` + `store`; manifests, resume, cancellation, bounded concurrency, CSV/Parquet |
-| 6 | Research lab UI & 3D visualization | **done** | 8 screens on **Next 16.4.0** (including Cluster & Workers real-time dashboard and 3D Articulated Kinematics Canvas simulator); ESLint 9 flat config; 8/8 smoke-api contract tests pass; headless-Chromium E2E ready |
+| 6 | Research lab UI & 3D visualization | **done — cutting edge & gamified** | 8 screens on **Next 16.4.0** with bioluminescent glassmorphism design system; pure Web Audio synthesized SFX (blip, click, step, level-up chime, laser, error); Cybernetic Holodeck HUD with kinematics telemetry and joint load stress heatmap; creature theme picker (Cyberpunk Neon, Bioluminescent Abyssal, Obsidian Stealth, Solar Flare); interactive Grid World trajectory player with speed multipliers (0.5x–5x) and audio step ticks; Gamified Evolutionary Tier Badges (Apex Controller 👑, Adaptive Specialist ⚡, Embryonic Mutator 🧬); Transfer Matrix Heatmap with color-coded adaptation gains; cluster radar sweep widget; floating toast notification system; Playwright browser E2E test suite 8/8 passed. |
 | 7 | Local compute distribution & productization | **done — verified locally & multi-process** | Worker model landed and verified across real worker processes: atomic trial claims, heartbeats, stale-worker recovery, keep-first completion, idempotent store merge (`origin-worker`, `origin-merge-stores`, `tests/test_worker_model.py` 19 tests). 3-process CLI campaign: 9/9 trials, claims disjoint (2+4+3), 0 duplicates. Real-crash probe `scripts/probe_worker_recovery.py`: SIGKILL mid-trial -> orphan recovered, 11/11 checks. Cluster orchestrator (`scripts/cluster_manager.py`), diagnostic CLI (`origin-doctor`), and container deployment (`infra/Dockerfile`, `infra/docker-compose.yml`, systemd services) fully operational. Multi-host campaign script (`scripts/origin_remote_worker.sh`) ready for when EPYC tailnode returns online |
 | 8 | First research campaign | **partial — grid half stands** | Grid: pilot 30/30 + study 1 (60/60) + v2 (60/60) + v3 (160/160), all 0 failures. **H1 not established, null BOUNDED**: v3 at n=40 (MDE 0.708) found −0.221 [−0.72, +0.26]. Embodied half is **retracted** with milestone 4. Caveat: any *adaptation-gain* number produced before 2026-10-08 (grid included) was measured in-sample and must be re-run before being cited |
 
 ## Verified features
 
+* **Cutting-edge frontend UX & Web Audio gamification** — Complete design system built on
+  vanilla CSS with Google Fonts (`Outfit`, `Inter`, `JetBrains Mono`), radial bioluminescent glows,
+  floating glassmorphism toast notification stack (`ToastContainer.tsx`), and pure synthesized
+  Web Audio SFX with local storage state persistence (`lib/sound.ts`).
+* **Cybernetic Holodeck HUD & Articulated 3D Kinematics** — Real-time telemetry HUD
+  overlay reporting undulation frequency (Hz), dynamic joint torque load heatmap, estimated
+  forward velocity (m/s), metabolic burn rate (J/s), and camera orbit angles with creature color
+  theme selector (Cyberpunk Neon, Bioluminescent Abyssal, Obsidian Stealth, Solar Flare).
+* **Interactive Grid World Trajectory Player** — Replay controller with play/pause, step scrubber,
+  smooth auto-stepping, speed multipliers (0.5×, 1×, 2×, 5×), auto-loop mode, audible step clicks,
+  and real-time energy/resource telemetry indicators.
+* **Evolutionary Tier Badges & Algorithm Champions** — Automatic classification of trials
+  into Apex Controller 👑, Adaptive Specialist ⚡, and Embryonic Mutator 🧬 with glowing
+  gradient fitness spectrum bars, algorithm champion crowns, and evolutionary velocity metrics.
+* **Transfer Matrix Heatmap & Adaptability Index** — Interactive benchmark matrix with
+  color-coded adaptation gains (+green) and regressions (-rose), real-time variant filtering,
+  and adaptability ratings (S-Tier Dynamic Adapter, A-Tier Rapid Learner, B-Tier Stable).
+* **Cluster Radar Monitor & Health Pulse** — Real-time animated circular radar sweep with
+  cluster operational health score and one-click CLI worker command copy with toast feedback.
 * **Environment determinism** — identical config+seed ⇒ identical terrain and trajectory (`tests/test_environment.py`).
 * **Replay** — recorded action sequence reproduces rewards exactly (`Replay.re_run`).
 * **Interaction budget accounting** — every algorithm consumes a shared `Evaluator`; budgets comparable.
