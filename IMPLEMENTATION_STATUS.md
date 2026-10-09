@@ -67,19 +67,25 @@
   `origin-merge-stores` merges stores by trial id idempotently (a second merge
   is a no-op; both-done conflicts are reported, never silently resolved).
   Asserted in `tests/test_worker_model.py`.
-* **API security & token authentication** — `origin-api` supports Bearer token and
+* **API security & hardening** — `origin-api` supports Bearer token and
   `X-API-Key` authentication (`ORIGIN_API_KEY`), automatically generates secure tokens
   if bound beyond loopback, validates tokens using constant-time comparison
-  (`hmac.compare_digest`), handles CORS preflight (`OPTIONS`), and exposes
-  `/api/capabilities`, `/api/workers`, and `/api/workers/reap`. Asserted in
-  `tests/test_api.py` and `tests/test_security.py`.
+  (`hmac.compare_digest`), enforces sliding-window rate limiting (`RateLimiter`),
+  attaches strict security headers (`X-Content-Type-Options`, `X-Frame-Options`,
+  `Referrer-Policy`, `Cache-Control`), handles CORS preflight (`OPTIONS`), and exposes
+  `/api/capabilities`, `/api/workers`, `/api/workers/reap`, `/api/logs`, and `/api/export`.
+  Asserted in `tests/test_api.py` and `tests/test_security.py`.
 * **System diagnostics & health tooling** — `origin-doctor` verifies platform specs,
   core dependencies, optional extensions (PyBullet, PyTorch, Playwright), SQLite store
   consistency, API connectivity, and Lab UI production builds (`tests/test_doctor.py`).
 * **Interactive 3D morphology viewer & cluster dashboard** — Lab UI features an
   interactive HTML5 Canvas 3D articulated crawler kinematics simulator with real-time
-  gait undulation playback (`wave_a`, `wave_b`, `flex`, `extend`) and a real-time
-  Cluster & Workers monitor screen (`/workers`) with stale-worker reaping.
+  gait undulation playback (`wave_a`, `wave_b`, `flex`, `extend`), a real-time
+  Cluster & Workers monitor screen (`/workers`) with stale-worker reaping, live execution
+  log console (`/designer`), and CSV exports (`/`, `/benchmark`).
+* **Cross-platform browser E2E test runner** — `scripts/run_e2e.py` provides pure-Python
+  orchestration across Windows, Linux, and macOS, starting backend & UI with clean
+  process lifecycle management, preflighting all 8 routes, and verifying live rendering.
 * **Production deployment infrastructure** — Multi-stage `infra/Dockerfile`,
   `infra/docker-compose.yml`, systemd services (`infra/systemd/`), and cross-platform
   cluster orchestrator (`scripts/cluster_manager.py`).
@@ -88,7 +94,7 @@
 
 ```
 $ .venv/bin/python -m pytest tests
-103 passed, 7 skipped        # 110 collected; all unit/integration/api/doctor/security tests pass
+107 passed, 7 skipped        # 114 collected; all unit/integration/api/doctor/security tests pass
 $ .venv/bin/ruff check packages tests scripts benchmarks
 All checks passed!
 $ .venv/bin/mypy packages/origin
@@ -98,9 +104,13 @@ Platform, core dependencies, extensions, store, API, and Lab UI all validated
 $ cd apps/lab && npm run lint && npm run typecheck && npm run build
 ✔ No ESLint warnings or errors; typecheck clean; production build OK (8 static routes prerendered)
 $ node apps/lab/scripts/smoke-api.mjs   # UI↔API contract (API on :8788)
-8/8 checks passed          # experiments, protocols, capabilities, workers contracts verified
-$ scripts/e2e_lab.sh                    # real headless browser against live API
-6 passed; all 7 routes HTTP 200
+18/18 checks passed          # capabilities, workers, experiments, protocols, details, world contracts verified
+$ .venv/bin/python scripts/run_e2e.py   # real headless browser against live API + UI
+8 passed, 1 skipped; all 8 routes HTTP 200
+$ .venv/bin/bandit -q -r packages/origin -ll
+0 medium/high severity findings
+$ .venv/bin/pip-audit
+No known vulnerabilities found
 $ .venv/bin/origin-run --config configs/embodied_transfer.json --store runs --jobs 6
 15 trials run, 0 failed      # experiment 589217adbe9e — corrected task; result is
                              # a constant -1.000 with 0 successes (task unsolvable)

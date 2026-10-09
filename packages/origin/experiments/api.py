@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import collections
+import contextlib
 import csv
 import hmac
 import io
@@ -336,10 +337,8 @@ def make_handler(
             self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
             self.send_header("Cache-Control", "no-store, max-age=0")
             self.end_headers()
-            try:
+            with contextlib.suppress(ConnectionResetError, ConnectionAbortedError, BrokenPipeError):
                 self.wfile.write(body)
-            except (ConnectionResetError, ConnectionAbortedError, BrokenPipeError):
-                pass
 
         def log_message(self, *a: Any) -> None:  # quieter
             pass
@@ -395,10 +394,8 @@ def make_handler(
             self.send_header("X-Frame-Options", "DENY")
             self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
             self.end_headers()
-            try:
+            with contextlib.suppress(ConnectionResetError, ConnectionAbortedError, BrokenPipeError):
                 self.wfile.write(data)
-            except (ConnectionResetError, ConnectionAbortedError, BrokenPipeError):
-                pass
 
         def do_GET(self) -> None:
             ip = self._client_ip()
@@ -455,10 +452,8 @@ def make_handler(
                     self.send_header("X-Frame-Options", "DENY")
                     self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
                     self.end_headers()
-                    try:
+                    with contextlib.suppress(ConnectionResetError, ConnectionAbortedError, BrokenPipeError):
                         self.wfile.write(data)
-                    except (ConnectionResetError, ConnectionAbortedError, BrokenPipeError):
-                        pass
                     return
                 if url.path == "/api/experiments":
                     exps = store.list_experiments()

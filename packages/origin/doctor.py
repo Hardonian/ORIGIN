@@ -95,8 +95,10 @@ def check_store(store_path: str | Path) -> dict[str, Any]:
 
 def check_api_server(host: str = "127.0.0.1", port: int = 8788) -> dict[str, Any]:
     url = f"http://{host}:{port}/api/capabilities"
+    if not url.startswith("http://"):
+        return {"reachable": False, "status": "invalid URL scheme"}
     try:
-        with urlopen(url, timeout=1.5) as res:
+        with urlopen(url, timeout=1.5) as res:  # nosec: B310
             if res.status == 200:
                 data = json.loads(res.read().decode())
                 return {"reachable": True, "details": data}
