@@ -213,9 +213,11 @@ $ .venv-embodied312\Scripts\python.exe scripts\run_e2e.py --seed
 * **PPO v1 is exploratory, not confirmatory.** The completed grid implementation
   run used a 50,000-step configuration that does not match its 500,000-step
   registration; it is preserved and audited in
-  `research/reports/ACTOR_CRITIC_V1_CONFIGURATION_AUDIT.md`. The corrected,
-  unexecuted v2 registration fixes the grid and embodied task specifications in
+  `research/reports/ACTOR_CRITIC_V1_CONFIGURATION_AUDIT.md`. The corrected v2
+  registration fixes the grid and embodied task specifications in
   `research/protocols/actor_critic_v2.md` and the corresponding v2 configs.
+  Grid execution has begun under that immutable configuration; no PPO claim is
+  made until its complete paired matrix passes the fail-closed analyzer.
 * **The scripted heuristic is privileged** (global BFS) and is a reference, not a
   like-for-like competitor. The embodied `scripted_gait` is open-loop and cannot
   adapt at all by construction.
@@ -244,7 +246,7 @@ $ .venv-embodied312\Scripts\python.exe scripts\run_e2e.py --seed
 ## Remaining work
 
 All nine engineering milestones (0 through 8) are **implemented and
-verified**. The research program has deliberately separate, unexecuted work:
+verified**. The research program has deliberately separate execution work:
 
 1. **Milestone 4 (Embodied intelligence / morphology transfer):** Physically calibrated yaw-jointed crawler verified; pre-registered confirmatory H2 campaign (`1bdb4b622748`, 25/25 trials, 0 failures) completed; transfer costs and adaptation recovery confirmed across 4 body plans.
 2. **Milestone 7 (Multi-host compute distribution):** Verified locally with process crashes and recovery (`probe_worker_recovery.py`), and verified across multi-host infrastructure on AMD EPYC 7452 (`epyc`, 32 jobs) with staged idempotent store merge.
@@ -252,9 +254,13 @@ verified**. The research program has deliberately separate, unexecuted work:
    - Single-Niche Grid World v4 (`59427f9116fa`, 160/160 trials): H1-ME confirmed (+0.679, $p=0.0381$).
    - Multi-Niche Grid World v3 (`1e8559d6de45`, 256/256 trials): H1.MN confirmed (+0.418, $p=0.0305$).
    - Embodied Morphology Transfer v3 (`1bdb4b622748`, 25/25 trials): calibrated transfer costs and adaptation recovery measured; MAP-Elites-versus-GA comparison unresolved.
-4. **PPO v2 confirmatory studies:** Execute the separately registered grid and
-   embodied studies before making any PPO efficacy claim. PPO v1 remains
-   exploratory because it was registration-nonconformant.
+4. **PPO v2 confirmatory studies:** The registered grid campaign
+   (`7cbf11754c44`) is executing locally, with capped PPO trials persisted as
+   they finish; it remains non-citable until all 40 PPO/REINFORCE seed pairs
+   and descriptive controls are complete. The embodied v2 campaign remains
+   unstarted, but its exact registered eight-link body passed the local probe
+   (best forward gain $1.834\text{ m}$ over the $0.050\text{ m}$ gate).
+   PPO v1 remains exploratory because it was registration-nonconformant.
 5. **Independent replications:** Pre-register and run fresh environments and
    morphology families without retuning to the observed v3/v4 endpoints.
 6. **Future physics evidence:** Persist representative recorded trajectories
@@ -285,5 +291,6 @@ uv venv --python 3.12 .venv && uv pip install -e '.[dev]' --python .venv/bin/pyt
 ## Next executable action
 
 **No unaddressed engineering task is required for the completed milestones.**
-The next research action is a newly executed, registered PPO v2 study or an
-independent replication; continuous regression and CI checks gate both.
+The active registered grid PPO v2 study must complete and pass analysis before
+the separately registered embodied study or an independent replication begins.
+Continuous regression and CI checks gate each stage.
