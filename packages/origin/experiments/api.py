@@ -11,6 +11,7 @@ import argparse
 import collections
 import contextlib
 import csv
+import hashlib
 import hmac
 import io
 import json
@@ -261,7 +262,8 @@ def _launch(store: Store, cfg: dict) -> dict:
     validate_config(cfg)
     if int(cfg["budget"]) > MAX_LAUNCH_BUDGET:
         raise ValueError(f"budget exceeds the UI launch cap ({MAX_LAUNCH_BUDGET})")
-    tmp = Path(store.root) / f"launched-{abs(hash(json.dumps(cfg, sort_keys=True))) % 10**8}.json"
+    config_id = _launch_artifact_id(cfg)
+    tmp = Path(store.root) / f"launched-{config_id}.json"
     tmp.write_text(json.dumps(cfg, indent=2))
     log = Path(store.root) / "launched.log"
     with log.open("a") as fh:
@@ -270,6 +272,12 @@ def _launch(store: Store, cfg: dict) -> dict:
             stdout=fh, stderr=subprocess.STDOUT, cwd=str(Path(store.root).resolve()),
         )
     return {"launched": True, "config": str(tmp), "log": str(log)}
+
+
+def _launch_artifact_id(cfg: dict) -> str:
+    """Return a process-independent identifier for a launch configuration."""
+    canonical = json.dumps(cfg, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()[:16]
 
 
 def _serve_logs(store: Store, q: dict[str, list[str]]) -> dict:

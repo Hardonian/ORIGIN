@@ -9,6 +9,7 @@ that the crawler passed a calibration which command-line diagnostics reject.
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 from typing import Any
 
@@ -70,16 +71,35 @@ def read_calibration_evidence(store_root: str | Path) -> dict[str, Any]:
     acceptance: dict[str, Any] = acceptance_value if isinstance(acceptance_value, dict) else {}
     minimum = acceptance.get("minimum_forward_gain_m")
     best = acceptance.get("best_forward_gain_m")
-    gaits = raw.get("gaits") if isinstance(raw.get("gaits"), list) else []
-    minimum_value = float(minimum) if isinstance(minimum, (int, float)) else None
-    best_value = float(best) if isinstance(best, (int, float)) else None
+    gaits_value = raw.get("gaits")
+    gaits: list[Any] = gaits_value if isinstance(gaits_value, list) else []
+    def finite_number(value: Any) -> float | None:
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return None
+        converted = float(value)
+        return converted if math.isfinite(converted) else None
+
+    minimum_value = finite_number(minimum)
+    best_value = finite_number(best)
+    measured_gains = [
+        gain
+        for row in gaits
+        if isinstance(row, dict)
+        for gain in [finite_number(row.get("x_gain_m"))]
+        if gain is not None
+    ]
+    config_hash = raw.get("config_hash")
     valid_pass = (
         status == "passed"
         and passed
+        and isinstance(config_hash, str)
+        and bool(config_hash)
         and minimum_value is not None
+        and minimum_value > 0
         and best_value is not None
         and best_value >= minimum_value
-        and bool(gaits)
+        and bool(measured_gains)
+        and max(measured_gains) >= minimum_value
     )
     valid_nonpass = status in {"failed", "unavailable"} and not passed
     valid = valid_pass or valid_nonpass
@@ -93,7 +113,7 @@ def read_calibration_evidence(store_root: str | Path) -> dict[str, Any]:
         "passed": valid_pass,
         "file": CALIBRATION_EVIDENCE_FILE,
         "message": "Validated probe evidence." if valid else "Calibration evidence does not meet the evidence contract.",
-        "config_hash": raw.get("config_hash"),
+        "config_hash": config_hash,
         "acceptance": {
             "minimum_forward_gain_m": minimum_value,
             "duration_seconds": acceptance.get("duration_seconds"),

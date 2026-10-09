@@ -10,7 +10,7 @@ from urllib.request import Request, urlopen
 
 import pytest
 
-from origin.experiments.api import make_handler
+from origin.experiments.api import _launch_artifact_id, make_handler
 from origin.experiments.store import Store
 
 
@@ -80,6 +80,18 @@ def test_api_calibration_evidence_is_fail_closed(test_server):
         invalid = json.loads(res.read().decode())
     assert invalid["status"] == "invalid"
     assert invalid["passed"] is False
+
+    evidence.write_text(json.dumps({
+        "status": "passed",
+        "passed": True,
+        "config_hash": "accepted-body",
+        "acceptance": {"minimum_forward_gain_m": 0.05, "best_forward_gain_m": float("nan")},
+        "gaits": [{}],
+    }))
+    with urlopen(f"{base_url}/api/calibration") as res:
+        malformed = json.loads(res.read().decode())
+    assert malformed["status"] == "invalid"
+    assert malformed["passed"] is False
 
 
 def test_api_cors_preflight(test_server):
@@ -210,3 +222,9 @@ def test_api_rate_limiter_logic():
     assert limiter.is_allowed("1.2.3.4") is True
     assert limiter.is_allowed("1.2.3.4") is False
     assert limiter.is_allowed("5.6.7.8") is True
+
+
+def test_launch_artifact_name_is_stable():
+    cfg = {"budget": 10, "name": "stable", "nested": {"seed": 4}}
+    assert _launch_artifact_id(cfg) == "3307b5c78c2c412e"
+    assert _launch_artifact_id({"nested": {"seed": 4}, "name": "stable", "budget": 10}) == _launch_artifact_id(cfg)

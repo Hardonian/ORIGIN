@@ -50,7 +50,7 @@ def test_doctor_embodied_calibration_is_fail_closed(tmp_path):
     runs = tmp_path / "runs"
     runs.mkdir()
     (runs / "embodied-calibration.json").write_text(
-        '{"status":"passed","passed":true,"acceptance":{"minimum_forward_gain_m":0.05,"best_forward_gain_m":0.06},"gaits":[{"program":"wave_a"}]}'
+        '{"status":"passed","passed":true,"config_hash":"accepted-body","acceptance":{"minimum_forward_gain_m":0.05,"best_forward_gain_m":0.06},"gaits":[{"program":"wave_a","x_gain_m":0.06}]}'
     )
     rep = check_embodied_calibration(runs)
     assert rep["evidence"]["passed"] is True
