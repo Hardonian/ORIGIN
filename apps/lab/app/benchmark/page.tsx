@@ -444,6 +444,7 @@ export default function BenchmarkPage() {
 
           {/* Transfer Heatmap with search and category filters */}
           <div className="panel">
+            <h2>Transfer Matrix Heatmap (zero-shot → adapted)</h2>
             <div
               className="row"
               style={{

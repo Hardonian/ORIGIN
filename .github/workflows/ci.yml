@@ -13,7 +13,7 @@ concurrency:
 jobs:
   python:
     name: Python — lint, types, tests
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, epyc]
     strategy:
       matrix:
         python-version: ["3.12"]
@@ -37,7 +37,7 @@ jobs:
 
   embodied:
     name: Embodied — PyBullet acceptance
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, epyc]
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -61,7 +61,7 @@ jobs:
 
   security:
     name: Security checks
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, epyc]
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -83,7 +83,7 @@ jobs:
 
   frontend:
     name: Frontend — lint, types, build
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, epyc]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -107,7 +107,7 @@ jobs:
 
   e2e:
     name: End-to-end browser test
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, epyc]
     needs: [python, frontend]
     steps:
       - uses: actions/checkout@v4
@@ -115,7 +115,7 @@ jobs:
       - run: uv venv --python 3.12 --clear .venv
       - run: uv pip install -e ".[dev]" --python .venv/bin/python
       - name: Install Playwright Chromium
-        run: .venv/bin/python -m playwright install --with-deps chromium
+        run: .venv/bin/python -m playwright install chromium
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
