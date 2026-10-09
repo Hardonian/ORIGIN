@@ -137,7 +137,10 @@ jobs:
       - uses: astral-sh/setup-uv@v5
       - run: uv venv --python 3.12 --clear .venv
       - name: Install RL extra (torch + stable-baselines3)
-        run: uv pip install -e ".[rl]" --python .venv/bin/python
+        # The box's GPUs are sm_61 (P40) / sm_70 (V100) / sm_86 (3060).
+        # Default PyPI torch (cu130) only ships sm_75+ kernels, so the V100 and
+        # P40 would fail with "no kernel image". The cu126 build covers sm_50..sm_90.
+        run: uv pip install -e ".[rl]" --python .venv/bin/python --torch-backend=cu126
       - name: CUDA devices
         run: |
           .venv/bin/python - <<'PY'
