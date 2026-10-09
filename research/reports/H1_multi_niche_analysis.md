@@ -10,7 +10,7 @@ registration, no other test decides the verdict and it is not switched.
 ## Descriptive (held-out mean reward per method)
 
 | method | n | mean | sd | min | max |
-|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- |
 | `random` | 5 | 3.513 | 0.000 | 3.513 | 3.513 |
 | `heuristic` | 5 | 70.175 | 0.000 | 70.175 | 70.175 |
 | `fixed_objective_ga` | 5 | -2.010 | 2.348 | -5.087 | 0.050 |
@@ -19,7 +19,7 @@ registration, no other test decides the verdict and it is not switched.
 ## Registered primary: paired test, diversity method vs fixed-objective GA
 
 | comparison | mean paired diff | 95% paired bootstrap CI | CI excludes 0? | Wilcoxon p | verdict |
-|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- |
 | `map_elites` − `fixed_objective_ga` | +0.036 | [-2.202, +2.275] | no | 1.0000 (W=5.0) | **inconclusive** |
 
 Paired on 5 method seeds. Uncorrected p-values are shown;

@@ -23,7 +23,7 @@ Deterministic 10×10 egocentric foraging world; observation is 7-D (energy + res
 ## 3. Held-out performance (train/test isolated)
 
 | method | n seeds | held-out reward (mean) | standard error | train fitness | mean interactions |
-|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- |
 | `random` | 5 | 3.513 | ±0.000 | 3.800 | 0 |
 | `heuristic` | 5 | 70.175 | ±0.000 | 73.675 | 0 |
 | `fixed_objective_ga` | 5 | -2.010 | ±1.050 | 0.018 | 34,527 |
@@ -45,7 +45,7 @@ _held-out reward is measured on evaluation seeds never used for training._
 Values are reached reward; morphology variants show `zero-shot → adapted`.
 
 | variant | kind | `fixed_objective_ga` | `map_elites` |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `body_fast` | morphology | -1.72 → -1.65 | -2.50 → -2.93 |
 | `body_small` | morphology | -2.01 → -1.66 | -1.83 → -2.21 |
 | `hazard_dense` | perturbation | -2.95 | -2.44 |
