@@ -83,6 +83,11 @@ for (const e of exps) {
     ok("morphology plan is not a replay", morphology.physics_replay === false);
     ok("morphology plan has links and joints", Array.isArray(morphology.body?.segments) && Array.isArray(morphology.body?.joints));
     ok("morphology plan exposes calibration gate", morphology.calibration?.status === "required");
+    if (morphology.has_recorded_trajectory) {
+      const traj = await get(morphology.trajectory_url);
+      ok("trajectory endpoint returns recorded physics steps", Array.isArray(traj.trajectory) && traj.trajectory.length > 0);
+      ok("trajectory exposes real physics coordinates", Array.isArray(traj.trajectory[0].base_pos) && Array.isArray(traj.trajectory[0].joint_angles));
+    }
     embodiedWorldChecked = true;
   }
 }

@@ -211,6 +211,39 @@ export interface Comparison {
   >;
 }
 
+export interface RecordedTrajectoryFrame {
+  step: number;
+  time_s: number;
+  base_pos: [number, number, number];
+  base_orn: [number, number, number, number];
+  joint_angles: number[];
+  action: number;
+  action_name: string;
+  reward: number;
+  cumulative_reward: number;
+  distance_to_target: number;
+  upright: boolean;
+  success: boolean;
+}
+
+export interface RecordedTrajectory {
+  experiment_id: string;
+  trial_id: string;
+  seed: number;
+  morphology: string;
+  n_links: number;
+  link_length: number;
+  link_radius: number;
+  joint_axis: [number, number, number];
+  target_distance: number;
+  steps: number;
+  total_reward: number;
+  total_displacement_m: number;
+  final_upright: boolean;
+  success: boolean;
+  trajectory: RecordedTrajectoryFrame[];
+}
+
 export function parseJson<T>(s: string | null | undefined, fallback: T): T {
   if (!s) return fallback;
   try {

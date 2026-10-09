@@ -228,3 +228,86 @@ def test_launch_artifact_name_is_stable():
     cfg = {"budget": 10, "name": "stable", "nested": {"seed": 4}}
     assert _launch_artifact_id(cfg) == "3307b5c78c2c412e"
     assert _launch_artifact_id({"nested": {"seed": 4}, "name": "stable", "budget": 10}) == _launch_artifact_id(cfg)
+
+
+def test_api_trajectory_endpoint(test_server):
+    base_url, store, _ = test_server
+
+    # Missing parameters -> 400
+    with pytest.raises(HTTPError) as exc_info:
+        urlopen(f"{base_url}/api/trajectory")
+    assert exc_info.value.code == 400
+
+    # Non-existent experiment -> 404
+    with pytest.raises(HTTPError) as exc_info:
+        urlopen(f"{base_url}/api/trajectory?experiment=unknown&trial=t1")
+    assert exc_info.value.code == 404
+
+    # Setup valid experiment and trial
+    cfg = {
+        "name": "embodied-traj-test",
+        "protocol": "embodied",
+        "env_kind": "embodied",
+        "env": {"morphology": "worm", "n_links": 3},
+    }
+    store.upsert_experiment("exp-emb", cfg["name"], cfg["protocol"], "h1", cfg, None)
+    store.add_trial("trial-traj-1", "exp-emb", "fixed_objective_ga", 42, 100)
+
+    # Missing trajectory file -> 404
+    with pytest.raises(HTTPError) as exc_info:
+        urlopen(f"{base_url}/api/trajectory?experiment=exp-emb&trial=trial-traj-1")
+    assert exc_info.value.code == 404
+
+    # Morphology plan shows has_recorded_trajectory False when no trajectory file exists
+    with urlopen(f"{base_url}/api/morphology?experiment=exp-emb&trial=trial-traj-1") as res:
+        plan = json.loads(res.read().decode())
+        assert plan["has_recorded_trajectory"] is False
+        assert plan["trajectory_url"] is None
+        assert plan["physics_replay"] is False
+
+    # Create mock trajectory file
+    traj_path = store.root / "exp-emb" / "trial-traj-1.trajectory.json"
+    traj_path.parent.mkdir(parents=True, exist_ok=True)
+    traj_data = {
+        "experiment_id": "exp-emb",
+        "trial_id": "trial-traj-1",
+        "seed": 42,
+        "morphology": "crawler_3",
+        "steps": 1,
+        "total_reward": 1.23,
+        "total_displacement_m": 0.45,
+        "trajectory": [
+            {
+                "step": 0,
+                "time_s": 0.0,
+                "base_pos": [0.0, 0.0, 0.035],
+                "base_orn": [0.0, 0.0, 0.0, 1.0],
+                "joint_angles": [0.1, 0.2],
+                "action": 1,
+                "action_name": "extend",
+                "reward": 0.5,
+                "cumulative_reward": 0.5,
+                "distance_to_target": 2.5,
+                "upright": True,
+                "success": False,
+            }
+        ],
+    }
+    traj_path.write_text(json.dumps(traj_data))
+
+    # /api/trajectory returns 200 with recorded data
+    with urlopen(f"{base_url}/api/trajectory?experiment=exp-emb&trial=trial-traj-1") as res:
+        assert res.status == 200
+        data = json.loads(res.read().decode())
+        assert data["experiment_id"] == "exp-emb"
+        assert data["trial_id"] == "trial-traj-1"
+        assert len(data["trajectory"]) == 1
+        assert data["trajectory"][0]["action_name"] == "extend"
+
+    # Morphology plan now reflects has_recorded_trajectory True
+    with urlopen(f"{base_url}/api/morphology?experiment=exp-emb&trial=trial-traj-1") as res:
+        plan = json.loads(res.read().decode())
+        assert plan["has_recorded_trajectory"] is True
+        assert plan["trajectory_url"] == "/api/trajectory?experiment=exp-emb&trial=trial-traj-1"
+        assert plan["physics_replay"] is False
+
