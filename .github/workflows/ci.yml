@@ -11,9 +11,28 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  guard:
+    name: Guard — no conflict markers
+    runs-on: [self-hosted, epyc]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject committed merge-conflict markers
+        run: |
+          set -euo pipefail
+          # Match conflict-specific markers only (7 chars + space + ref) so markdown
+          # '=====' underlines and docs are not false positives.
+          if grep -rInE '^(<<<<<<< |>>>>>>> )' \
+               --exclude-dir=.git --exclude-dir=.venv --exclude-dir=node_modules \
+               --exclude-dir=.next --exclude-dir=dist --exclude-dir=build . ; then
+            echo "::error::committed merge-conflict markers found — resolve them before pushing"
+            exit 1
+          fi
+          echo "OK: no conflict markers"
+
   python:
     name: Python — lint, types, tests
     runs-on: [self-hosted, epyc]
+    needs: [guard]
     strategy:
       matrix:
         python-version: ["3.12"]
@@ -38,6 +57,7 @@ jobs:
   embodied:
     name: Embodied — PyBullet acceptance
     runs-on: [self-hosted, epyc]
+    needs: [guard]
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -62,6 +82,7 @@ jobs:
   security:
     name: Security checks
     runs-on: [self-hosted, epyc]
+    needs: [guard]
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -84,6 +105,7 @@ jobs:
   frontend:
     name: Frontend — lint, types, build
     runs-on: [self-hosted, epyc]
+    needs: [guard]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -108,7 +130,7 @@ jobs:
   e2e:
     name: End-to-end browser test
     runs-on: [self-hosted, epyc]
-    needs: [python, frontend]
+    needs: [guard, python, frontend]
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
