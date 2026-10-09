@@ -11,7 +11,7 @@ interface WorldData {
   seed: number;
   config: Record<string, number | string>;
   grid: number[][];
-  trajectory: { agent: number[]; action: number; reward: number; collected: number; energy: number }[];
+  trajectory: { agent: number[]; action: number; reward: number; collected: number; collected_a?: number; collected_b?: number; energy: number }[];
   total_reward: number;
   steps: number;
   terminated: boolean;
@@ -52,8 +52,9 @@ const COLORS: Record<number, string> = {
   1: "#3b4657",
   2: "#3fb950",
   3: "#f85149",
-  4: "#00f0ff",
+  4: "#f5a623",
   5: "#c084fc",
+  9: "#00f0ff",
 };
 
 function kindFromDetail(detail: ExperimentDetail): Exclude<EnvironmentKind, null> {
@@ -181,7 +182,7 @@ export default function WorldPage() {
     const replay = world.grid.map((row) => row.slice());
     if (world.trajectory.length > 0) {
       const pos = step === 0 ? null : world.trajectory[step - 1].agent;
-      if (pos) replay[pos[0]][pos[1]] = 4;
+      if (pos) replay[pos[0]][pos[1]] = 9;
     }
     return replay;
   }, [world, step]);
@@ -393,7 +394,13 @@ export default function WorldPage() {
             </div>
             <div>
               <span>Resources Collected</span>
-              <strong>{currentStepData ? currentStepData.collected : 0} items</strong>
+              <strong>
+                {currentStepData
+                  ? currentStepData.collected_b !== undefined
+                    ? `${currentStepData.collected_a ?? currentStepData.collected} A / ${currentStepData.collected_b} B`
+                    : `${currentStepData.collected} items`
+                  : "0 items"}
+              </strong>
             </div>
             <div>
               <span>Total Reward</span>
@@ -436,12 +443,31 @@ export default function WorldPage() {
                     style={{
                       width: 18,
                       height: 18,
-                      background: COLORS[cell],
-                      borderRadius: cell === 4 ? "50%" : 2,
-                      boxShadow: cell === 4 ? "0 0 10px #00f0ff" : "none",
+                      background: COLORS[cell] || COLORS[0],
+                      borderRadius: cell === 9 ? "50%" : 2,
+                      boxShadow:
+                        cell === 9
+                          ? "0 0 10px #00f0ff"
+                          : cell === 4 || cell === 5
+                          ? "0 0 6px #f5a623"
+                          : cell === 2
+                          ? "0 0 6px #3fb950"
+                          : "none",
                       transition: "all 0.1s ease",
                     }}
-                    title={`Cell [${r}, ${c}] - ${cell === 4 ? "Agent" : cell === 1 ? "Obstacle" : cell === 2 ? "Resource" : cell === 3 ? "Hazard" : cell === 5 ? "Niche B resource" : "Empty"}`}
+                    title={`Cell [${r}, ${c}] - ${
+                      cell === 9
+                        ? "Agent"
+                        : cell === 1
+                        ? "Obstacle"
+                        : cell === 2
+                        ? "Resource A"
+                        : cell === 4 || cell === 5
+                        ? "Resource B"
+                        : cell === 3
+                        ? "Hazard"
+                        : "Empty"
+                    }`}
                   />
                 ))
               )}
@@ -459,20 +485,20 @@ export default function WorldPage() {
             </span>
             <span>
               <span className="swatch" style={{ background: COLORS[2] }} />
-              resource (+reward)
+              resource A (+reward)
+            </span>
+            <span>
+              <span className="swatch" style={{ background: COLORS[4] }} />
+              resource B (+high reward)
             </span>
             <span>
               <span className="swatch" style={{ background: COLORS[3] }} />
               hazard (-damage)
             </span>
             <span>
-              <span className="swatch" style={{ background: COLORS[5] }} />
-              niche B resource
-            </span>
-            <span>
               <span
                 className="swatch"
-                style={{ background: COLORS[4], borderRadius: "50%", boxShadow: "0 0 6px #00f0ff" }}
+                style={{ background: COLORS[9], borderRadius: "50%", boxShadow: "0 0 6px #00f0ff" }}
               />
               agent
             </span>

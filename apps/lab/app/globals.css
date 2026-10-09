@@ -161,6 +161,11 @@ button:hover:not(:disabled) {
 button:active:not(:disabled) { transform: translateY(0); }
 button:disabled { opacity: 0.45; cursor: not-allowed; }
 
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 button.primary {
   background: var(--accent-grad);
   color: #04121f;

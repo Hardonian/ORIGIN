@@ -77,6 +77,7 @@ export default function Nav() {
             key={href}
             href={href}
             className={path === href ? "active" : ""}
+            aria-current={path === href ? "page" : undefined}
             onClick={() => sfx.click()}
           >
             {label}
@@ -99,8 +100,11 @@ export default function Nav() {
             border: "1px solid var(--border)",
           }}
           title={isOnline ? "Connected to backend API" : "Backend offline or unreachable"}
+          role="status"
+          aria-live="polite"
         >
           <span
+            aria-hidden="true"
             className={isOnline ? "pulse-dot" : ""}
             style={{
               width: 7,
@@ -115,6 +119,8 @@ export default function Nav() {
         {/* SFX audio toggle */}
         <button
           onClick={toggleSound}
+          aria-pressed={soundEnabled}
+          aria-label={soundEnabled ? "Mute interactive audio effects" : "Enable interactive sound effects"}
           style={{
             fontSize: 13,
             padding: "4px 8px",
@@ -142,6 +148,8 @@ export default function Nav() {
             color: token ? "var(--ok)" : "var(--muted)",
           }}
           title="Configure API Token"
+          aria-haspopup="dialog"
+          aria-expanded={isModalOpen}
         >
           {token ? "🔒 Auth Token" : "🔓 Open"}
         </button>
@@ -163,19 +171,24 @@ export default function Nav() {
             zIndex: 9999,
           }}
           onClick={() => setIsModalOpen(false)}
+          role="presentation"
         >
           <div
             className="panel panel-glow"
             style={{ width: 460, maxWidth: "90%", background: "var(--panel)" }}
             onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="api-auth-title"
           >
-            <h2 style={{ marginTop: 0, color: "#fff" }}>API Authentication Token</h2>
+            <h2 id="api-auth-title" style={{ marginTop: 0, color: "#fff" }}>API Authentication Token</h2>
             <p className="sub">
               Enter your <code>ORIGIN_API_KEY</code> if connecting to a remote or secured ORIGIN instance.
             </p>
             <input
               type="password"
               placeholder="Paste secret token..."
+              aria-label="API authentication token"
               value={inputToken}
               onChange={(e) => setInputToken(e.target.value)}
               style={{ width: "100%", marginBottom: 16 }}
@@ -190,6 +203,7 @@ export default function Nav() {
                     showToast("Token cleared", "info");
                   }}
                   style={{ color: "var(--err)", borderColor: "rgba(244, 63, 94, 0.4)" }}
+                  aria-label="Clear saved API token"
                 >
                   Clear Token
                 </button>

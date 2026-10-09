@@ -7,19 +7,26 @@ export default function ToastContainer() {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   useEffect(() => {
+    const timers = new Set<ReturnType<typeof setTimeout>>();
     const handleToast = (e: Event) => {
       const customEvent = e as CustomEvent<ToastMessage>;
       if (!customEvent.detail) return;
       const newToast = customEvent.detail;
       setToasts((prev) => [...prev, newToast]);
 
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         setToasts((prev) => prev.filter((t) => t.id !== newToast.id));
+        timers.delete(timer);
       }, 3500);
+      timers.add(timer);
     };
 
     window.addEventListener("origin_toast", handleToast);
-    return () => window.removeEventListener("origin_toast", handleToast);
+    return () => {
+      window.removeEventListener("origin_toast", handleToast);
+      timers.forEach((timer) => clearTimeout(timer));
+      timers.clear();
+    };
   }, []);
 
   if (toasts.length === 0) return null;
@@ -36,6 +43,7 @@ export default function ToastContainer() {
         gap: 8,
         maxWidth: 380,
       }}
+      aria-label="Notifications"
     >
       {toasts.map((t) => {
         const bg =
@@ -68,6 +76,9 @@ export default function ToastContainer() {
         return (
           <div
             key={t.id}
+            role={t.type === "error" || t.type === "warn" ? "alert" : "status"}
+            aria-live={t.type === "error" || t.type === "warn" ? "assertive" : "polite"}
+            aria-atomic="true"
             style={{
               display: "flex",
               alignItems: "center",
@@ -84,6 +95,7 @@ export default function ToastContainer() {
             }}
           >
             <span
+              aria-hidden="true"
               style={{
                 display: "inline-flex",
                 alignItems: "center",
@@ -102,6 +114,8 @@ export default function ToastContainer() {
             <span style={{ flex: 1 }}>{t.message}</span>
             <button
               onClick={() => setToasts((prev) => prev.filter((item) => item.id !== t.id))}
+              aria-label={`Dismiss notification: ${t.message}`}
+              title="Dismiss notification"
               style={{
                 background: "transparent",
                 border: "none",
