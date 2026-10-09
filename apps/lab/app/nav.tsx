@@ -41,15 +41,31 @@ export default function Nav() {
     window.addEventListener("origin_auth_changed", handleAuthChange);
 
     // Initial and periodic health ping
+    let disposed = false;
+    let activeController: AbortController | null = null;
     const checkPing = () => {
-      fetch(`${API_BASE}/api/health`)
-        .then((r) => setIsOnline(r.ok))
-        .catch(() => setIsOnline(false));
+      activeController?.abort();
+      const controller = new AbortController();
+      activeController = controller;
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      fetch(`${API_BASE}/api/health`, { signal: controller.signal })
+        .then((r) => {
+          if (!disposed) setIsOnline(r.ok);
+        })
+        .catch(() => {
+          if (!disposed) setIsOnline(false);
+        })
+        .finally(() => {
+          clearTimeout(timeout);
+          if (activeController === controller) activeController = null;
+        });
     };
     checkPing();
     const interval = setInterval(checkPing, 10000);
 
     return () => {
+      disposed = true;
+      activeController?.abort();
       window.removeEventListener("origin_auth_changed", handleAuthChange);
       clearInterval(interval);
     };
