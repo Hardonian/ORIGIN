@@ -1,3 +1,10 @@
+> ## Legacy evidence notice — 2026-10-09
+>
+> This analysis is retained for historical audit only. Its interaction accounting
+> predates strict-cap semantics, and any adaptation-gain value produced before
+> 2026-10-08 used overlapping adaptation and evaluation seeds. Do not cite it as
+> current compute or held-out transfer evidence; see `RESULT_PROVENANCE.md`.
+
 # H1 — Pre-registered analysis (paired design, study v2)
 
 Experiment `c7363fb00344` · protocol `paired_replication_v2_H1` · 10 seeds · budget 500,000 interactions/method/seed.

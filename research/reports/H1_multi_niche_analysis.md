@@ -1,3 +1,11 @@
+> ## Archival evidence notice — 2026-10-09
+>
+> This pilot analysis predates strict batch reservation and a uniquely fixed
+> ecological-shock aggregation. Its adaptation-gain values also predate the
+> held-out adaptation correction. It is retained as an instrumentation record,
+> not H1.MN evidence; use `H1_multi_niche_v3_analysis.md` and
+> `RESULT_PROVENANCE.md` for the current citation rule.
+
 # H1.MN — Pre-registered analysis (multi-niche ecological transfer)
 
 Experiment `f8f4c952a5c3` · protocol `multi_niche_pilot_v1` · 5 seeds · budget 25,000 interactions/method/seed.

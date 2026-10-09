@@ -1,3 +1,10 @@
+> ## Legacy evidence notice — 2026-10-09
+>
+> This generated single-niche report is retained for historical audit only. Its
+> interaction totals predate strict-cap semantics, and its adaptation-gain
+> figures predate disjoint adaptation/evaluation seeds. Do not cite it as
+> current compute or held-out transfer evidence; see `RESULT_PROVENANCE.md`.
+
 # Open-Ended Evolution and Cross-Morphology Generalization: A Reproducible Experimental Framework
 
 **Author:** Scott Hardie (Hardonian) · **Status:** 40 seeds; interval-based registered analysis in `research/reports/H1_v3_decisive_analysis.md`. Not peer reviewed.

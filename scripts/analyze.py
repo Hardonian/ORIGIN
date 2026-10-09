@@ -96,6 +96,31 @@ def _aligned(a: dict[int, float], b: dict[int, float]) -> tuple[list[float], lis
     return [a[s] for s in seeds], [b[s] for s in seeds], seeds
 
 
+def require_complete_paired_data(by_seed: dict[str, dict[int, float]], cfg: dict) -> None:
+    """Reject a paired analysis unless every configured learned method is complete.
+
+    Intersecting observed seeds is convenient for exploration but silently changes
+    a registered paired endpoint after a failed or missing trial.  The
+    confirmatory analyzer must instead require the exact configured method-seed
+    matrix and finite held-out values.
+    """
+    expected = [int(seed) for seed in cfg.get("seeds", [])]
+    if len(expected) != len(set(expected)):
+        raise ValueError("configured method seeds must be unique for paired analysis")
+    required = [BASELINE, *cfg.get("algorithms", {}).keys()]
+    problems: list[str] = []
+    for method in required:
+        observed = by_seed.get(method, {})
+        missing = sorted(set(expected) - set(observed))
+        nonfinite = sorted(seed for seed, value in observed.items() if not np.isfinite(value))
+        if missing:
+            problems.append(f"{method}: missing seeds {missing}")
+        if nonfinite:
+            problems.append(f"{method}: non-finite held-out values for seeds {nonfinite}")
+    if problems:
+        raise ValueError("incomplete paired analysis: " + "; ".join(problems))
+
+
 def _undertest(a: list[float], b: list[float]) -> tuple[float, float, float]:
     r = bootstrap_diff_ci(a, b, resamples=BOOTSTRAP_RESAMPLES, seed=BOOTSTRAP_SEED)
     return r.point, r.lo, r.hi
@@ -137,6 +162,11 @@ def main() -> int:
     transfer_data = _transfer_by_seed(store, exp_id)
 
     paired = args.design == "paired"
+    if paired:
+        try:
+            require_complete_paired_data(by_seed, cfg)
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from exc
     if not args.protocol_doc:
         if protocol == "multi_niche_pilot_v1":
             protocol_doc = "research/protocols/multi_niche_pilot.md"
@@ -163,6 +193,8 @@ def main() -> int:
     a = lines.append
     if "multi_niche" in protocol:
         title = "H1.MN — Pre-registered analysis (multi-niche ecological transfer)"
+    elif protocol == "paired_power_v4_strict_cap_H1ME":
+        title = "H1-ME — Pre-registered strict-cap single-niche replication"
     elif paired:
         title = "H1 — Pre-registered analysis (paired design, study v2)"
     else:
