@@ -227,13 +227,14 @@ def main() -> int:
 
     verdicts: dict[str, str] = {}
     if paired:
+        paired_methods = [
+            method for method in DIVERSITY if method in by_seed and BASELINE in by_seed
+        ]
         a("## Held-Out Base Generalization: paired test vs fixed-objective GA")
         a("")
         a("| comparison | mean paired diff | 95% paired bootstrap CI | CI excludes 0? | Wilcoxon p | verdict |")
         a("| --- | --- | --- | --- | --- | --- |")
-        for method in DIVERSITY:
-            if method not in by_seed or BASELINE not in by_seed:
-                continue
+        for method in paired_methods:
             ma, mb, seeds = _aligned(by_seed[method], by_seed[BASELINE])
             if not seeds:
                 continue
@@ -244,16 +245,18 @@ def main() -> int:
               f"{'yes' if r.excludes_zero else 'no'} | {p:.4f} (W={stat:.1f}) | **{r.verdict}** |")
         a("")
         a(f"Paired on {len(set(cfg.get('seeds', [])))} method seeds. Uncorrected p-values are shown;")
-        a(f"a Bonferroni threshold for two comparisons is α/2 = {ALPHA / 2:.3f} (reported, not applied).")
+        if len(paired_methods) == 1:
+            a("the sole registered comparison does not require a multiplicity adjustment.")
+        else:
+            a(f"a Bonferroni threshold for {len(paired_methods)} comparisons is "
+              f"α/{len(paired_methods)} = {ALPHA / len(paired_methods):.3f} (reported, not applied).")
         a("")
         a("### Bounded null (minimum detectable effect)")
         a("")
         a("An inconclusive result is only meaningful with the effect size the design could")
         a("have detected. At this n, 80% power, α = 0.05 (two-sided):")
         a("")
-        for method in DIVERSITY:
-            if method not in by_seed or BASELINE not in by_seed:
-                continue
+        for method in paired_methods:
             ma, mb, _seeds = _aligned(by_seed[method], by_seed[BASELINE])
             diffs = [x - y for x, y in zip(ma, mb, strict=False)]
             mde = min_detectable_effect(diffs, n=len(diffs))
@@ -268,10 +271,9 @@ def main() -> int:
         a("")
         a("The unpaired Mann–Whitney U on the same data, for comparability with study 1:")
         a("")
-        for method in DIVERSITY:
-            if method in data:
-                U, p = mann_whitney(data[method], data[BASELINE])
-                a(f"* `{method}`: U={U:.1f}, p={p:.4f} (unpaired, secondary).")
+        for method in paired_methods:
+            U, p = mann_whitney(data[method], data[BASELINE])
+            a(f"* `{method}`: U={U:.1f}, p={p:.4f} (unpaired, secondary).")
         a("")
     else:
         base = data[BASELINE]

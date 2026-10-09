@@ -79,6 +79,20 @@ MULTI_NICHE_ANALYSIS_DEFAULTS = {
     ),
 }
 
+SINGLE_NICHE_ANALYSIS_DEFAULTS = {
+    "paired_power_v4_strict_cap_H1ME": (
+        "H1_v4_strict_cap_analysis.md",
+        20261016,
+        "research/protocols/paired_v4_strict_cap.md",
+        "paired",
+    ),
+}
+
+CURRENT_STRICT_CAP_PROTOCOLS = {
+    "multi_niche_transfer_v3_strict_cap_H1MN",
+    "paired_power_v4_strict_cap_H1ME",
+}
+
 
 def legacy_protocol_reason(protocol: object) -> str | None:
     """Return why a protocol needs an explicit archival report override."""
@@ -121,8 +135,8 @@ def main() -> int:
     ap.add_argument("--store", default="runs")
     ap.add_argument("--experiment", default=None, help="experiment id (default: newest)")
     ap.add_argument("--exploratory", default=None, help="optional earlier experiment id for a replication check")
-    ap.add_argument("--design", choices=["independent", "paired"], default="independent",
-                    help="registered design of the primary experiment")
+    ap.add_argument("--design", choices=["independent", "paired"], default=None,
+                    help="registered design of the primary experiment (inferred for known protocols)")
     ap.add_argument("--analysis-file", default=None,
                     help="filename of the registered analysis to cite (default depends on design)")
     ap.add_argument("--bootstrap-seed", type=int, default=None,
@@ -139,6 +153,7 @@ def main() -> int:
     exp = next((e for e in exps if e["id"] == args.experiment), exps[0])
     exp_id = exp["id"]
     cfg = json.loads(exp["config_json"])
+    protocol = str(cfg.get("protocol", ""))
     legacy_reason = legacy_protocol_reason(cfg.get("protocol"))
     if legacy_reason and not args.allow_legacy:
         raise SystemExit(
@@ -147,6 +162,9 @@ def main() -> int:
             "Use --allow-legacy only for an explicitly archival artifact."
         )
     is_multi_niche = int(cfg.get("env", {}).get("n_resources_b", 0)) > 0
+    single_niche_defaults = SINGLE_NICHE_ANALYSIS_DEFAULTS.get(protocol)
+    report_design = args.design or (single_niche_defaults[3] if single_niche_defaults else "independent")
+    analysis_protocol_doc: str | None = None
     if is_multi_niche:
         try:
             default_analysis_file, default_boot_seed, protocol_doc = multi_niche_analysis_defaults(
@@ -154,6 +172,9 @@ def main() -> int:
             )
         except ValueError as exc:
             raise SystemExit(str(exc)) from exc
+        analysis_protocol_doc = protocol_doc
+    elif single_niche_defaults:
+        default_analysis_file, default_boot_seed, analysis_protocol_doc, _default_design = single_niche_defaults
     manifest_path = Path(args.store) / exp_id / "manifest.json"
     manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
 
@@ -263,7 +284,7 @@ def main() -> int:
                 f"across the two independent experiments with **{mismatches} mismatches**."
             )
         repl_lines.append("")
-        _analysis_file = args.analysis_file or ("H1_paired_v2_analysis.md" if args.design == "paired" else "H1_powered_analysis.md")
+        _analysis_file = args.analysis_file or ("H1_paired_v2_analysis.md" if report_design == "paired" else "H1_powered_analysis.md")
         repl_lines.append(f"> The registered analysis of the primary run is in `research/reports/{_analysis_file}`.")
         repl_lines.append("> Where a direction is not established by its registered interval analysis, it is")
         repl_lines.append("> reported as inconclusive rather than as a near-miss or a trend.")
@@ -290,12 +311,12 @@ def main() -> int:
         a("")
     a("# Open-Ended Evolution and Cross-Morphology Generalization: A Reproducible Experimental Framework")
     a("")
-    if is_multi_niche:
+    if is_multi_niche or single_niche_defaults:
         analysis_file = args.analysis_file or default_analysis_file
         boot_seed = args.bootstrap_seed if args.bootstrap_seed is not None else default_boot_seed
     else:
-        analysis_file = args.analysis_file or ("H1_paired_v2_analysis.md" if args.design == "paired" else "H1_powered_analysis.md")
-        boot_seed = args.bootstrap_seed if args.bootstrap_seed is not None else (20261009 if args.design == "paired" else 20261008)
+        analysis_file = args.analysis_file or ("H1_paired_v2_analysis.md" if report_design == "paired" else "H1_powered_analysis.md")
+        boot_seed = args.bootstrap_seed if args.bootstrap_seed is not None else (20261009 if report_design == "paired" else 20261008)
     a(f"**Author:** Scott Hardie (Hardonian) · **Status:** {len(cfg.get('seeds', []))} seeds; "
       f"interval-based registered analysis in `research/reports/{analysis_file}`. Not peer reviewed.")
     a("")
@@ -338,7 +359,7 @@ def main() -> int:
     if ga and (nov or qd) and not is_multi_niche:
         from origin.evaluation.stats import bootstrap_diff_ci, paired_bootstrap_ci
 
-        paired = args.design == "paired"
+        paired = report_design == "paired"
         base_seed = by_seed.get(BASELINE, {})
         a("### Registered analysis of H1" + (" (paired design)" if paired else ""))
         a("")
@@ -435,7 +456,7 @@ def main() -> int:
 
     a("## 7. Limitations")
     a("")
-    if cfg.get("protocol") != "multi_niche_transfer_v3_strict_cap_H1MN":
+    if protocol not in CURRENT_STRICT_CAP_PROTOCOLS:
         a(f"* **PRELIMINARY.** {len(cfg['seeds'])} seeds per method; confidence intervals are wide and no null-hypothesis test is powered.")
     if is_multi_niche:
         a("* The automatic base-task report intentionally does not supply a primary transfer verdict;")
@@ -444,9 +465,9 @@ def main() -> int:
     a("  bounds achievable effect sizes and compresses between-method differences.")
     a("* Single task family. No claim about generality beyond this world.")
     a("* The scripted BFS heuristic is a privileged reference, not a like-for-like competitor.")
-    a("* `reinforce` (a pure-NumPy policy gradient) is sample-inefficient at this budget and, in")
-    a("  this run, collapsed toward a degenerate policy. This is reported, not hidden; it bounds")
-    a("  any conclusion about RL rather than supporting one.")
+    a("* `reinforce` is a functional, non-confirmatory policy-gradient control. It is")
+    a("  excluded from powered primary comparisons until a fresh RL-specific study")
+    a("  establishes held-out performance.")
     a("")
 
     cfg_file = _find_config_file(cfg)
@@ -455,10 +476,16 @@ def main() -> int:
     a("```bash")
     a("uv venv --python 3.12 .venv && uv pip install -e '.[dev]' --python .venv/bin/python")
     a(f".venv/bin/origin-run --config configs/{cfg_file} --store runs --jobs $(nproc)")
-    a(f".venv/bin/python scripts/make_report.py --store runs --experiment {exp_id}")
+    a(f".venv/bin/python scripts/make_report.py --store runs --experiment {exp_id} "
+      f"--design {report_design} --analysis-file {analysis_file} --bootstrap-seed {boot_seed} "
+      f"--out {args.out}")
     if is_multi_niche:
         a(f".venv/bin/python scripts/analyze_multi_niche.py --store runs --experiment {exp_id} "
           f"--bootstrap-seed {boot_seed} --protocol-doc {protocol_doc} --out research/reports/{analysis_file}")
+    elif analysis_protocol_doc:
+        a(f".venv/bin/python scripts/analyze.py --store runs --experiment {exp_id} --design {report_design} "
+          f"--bootstrap-seed {boot_seed} --protocol-doc {analysis_protocol_doc} "
+          f"--out research/reports/{analysis_file}")
     a("```")
     a("")
     a(f"Reference environment: Python {env.get('python', '?')}, {env.get('platform', '?')}, {env.get('cpu_count', '?')} CPUs.")
@@ -469,9 +496,13 @@ def main() -> int:
     a("")
     a("## 10. Next milestone")
     a("")
-    if cfg.get("protocol") == "multi_niche_transfer_v3_strict_cap_H1MN":
+    if protocol == "multi_niche_transfer_v3_strict_cap_H1MN":
         a("The strict-cap multi-niche replication is complete. Any extension must use a new")
         a("pre-registered endpoint and fresh method seeds; the registered v3 analysis remains")
+        a("the only basis for its current confirmatory conclusion.")
+    elif protocol == "paired_power_v4_strict_cap_H1ME":
+        a("The strict-cap single-niche replication is complete. Any extension must use a new")
+        a("pre-registered endpoint and fresh method seeds; the registered v4 analysis remains")
         a("the only basis for its current confirmatory conclusion.")
     elif is_multi_niche:
         a("Pre-register and run the powered multi-niche replication campaign (n=40 paired seeds)")

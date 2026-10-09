@@ -2,7 +2,7 @@
 
 > Persistent status ledger. **Only verified features are marked complete.**
 > A feature is "verified" only if a command was actually run and its result observed.
-> Last updated: 2026-10-08. Current commit: see `git rev-parse HEAD`.
+> Last updated: 2026-10-09. Current commit: see `git rev-parse HEAD`.
 
 ## Milestones
 
@@ -16,11 +16,12 @@
 | 5 | Experiment orchestration | **done** | `origin.experiments.runner` + `store`; manifests, resume, cancellation, bounded concurrency, CSV/Parquet |
 | 6 | Research lab UI & 3D visualization | **done — cutting edge & gamified** | 8 screens on **Next 16.4.0 / React 19.3.0** with bioluminescent glassmorphism design system; pure Web Audio synthesized SFX (blip, click, step, level-up chime, laser, error); Cybernetic Holodeck HUD with kinematics telemetry and joint load stress heatmap; creature theme picker (Cyberpunk Neon, Bioluminescent Abyssal, Obsidian Stealth, Solar Flare); interactive Grid World trajectory player with speed multipliers (0.5x–5x) and audio step ticks; Gamified Evolutionary Tier Badges (Apex Controller 👑, Adaptive Specialist ⚡, Embryonic Mutator 🧬); Transfer Matrix Heatmap with color-coded adaptation gains; cluster radar sweep widget; floating toast notification system; Playwright browser E2E test suite 9/9 enabled scenarios passed (1 optional skip). |
 | 7 | Local compute distribution & productization | **done — verified locally & multi-process** | Worker model landed and verified across real worker processes: atomic trial claims, heartbeats, stale-worker recovery, keep-first completion, idempotent store merge (`origin-worker`, `origin-merge-stores`, `tests/test_worker_model.py` 19 tests). 3-process CLI campaign: 9/9 trials, claims disjoint (2+4+3), 0 duplicates. Real-crash probe `scripts/probe_worker_recovery.py`: SIGKILL mid-trial -> orphan recovered, 11/11 checks. Cluster orchestrator (`scripts/cluster_manager.py`), diagnostic CLI (`origin-doctor`), and container deployment (`infra/Dockerfile`, `infra/docker-compose.yml`, systemd services) fully operational. Multi-host campaign script (`scripts/origin_remote_worker.sh`) ready for when EPYC tailnode returns online |
-| 8 | First research campaign | **partial — grid half stands + powered multi-niche replication confirmed** | Grid: pilot 30/30 + study 1 (60/60) + v2 (60/60) + v3 (160/160) + multi-niche pilot (20/20, exp `f8f4c952a5c3`) + multi-niche v3 strict-budget replication (256/256, exp `1e8559d6de45`), all 0 failures. Single-niche H1 bounded null: v3 at n=40 found −0.221 [−0.72, +0.26]. Multi-niche replication H1.MN pre-registered (`research/protocols/multi_niche_replication_v3.md`): 64 paired seeds `[70..133]`, strict 25k cap enforced via batch pre-reservation; MAP-Elites significantly outperformed fixed-objective GA on held-out adapted transfer reward across all 5 ecological shocks (+0.418 [+0.057, +0.778], Wilcoxon p=0.0305) and on adaptation gain (+0.410 [+0.067, +0.756], p=0.0282) — confirming H1.MN. Embodied half is **retracted** with milestone 4. |
+| 8 | First research campaign | **partial — both grid claims now have strict-cap confirmation** | Single-niche v4 (160/160, exp `59427f9116fa`) and multi-niche v3 (256/256, exp `1e8559d6de45`) completed with 0 failures under batch pre-reservation. Single-niche H1-ME: MAP-Elites − GA on held-out reward +0.679 [+0.112, +1.241], Wilcoxon p=0.0381. Multi-niche H1.MN: MAP-Elites − GA on held-out adapted transfer across five shocks +0.418 [+0.057, +0.778], Wilcoxon p=0.0305. The embodied half remains **retracted** with milestone 4. |
 
 ## Verified features
 
 * **Strict-budget multi-niche replication confirmed (H1.MN v3)** — Pre-registered 64-paired-seed campaign (experiment `1e8559d6de45`, 256/256 trials, 0 failures; protocol `research/protocols/multi_niche_replication_v3.md`). Under strict budget caps (every batch pre-reserved before evaluation, interactions capped at ≤25,000 steps per seed: GA 23,026 vs ME 23,018), decisively confirmed that Quality-Diversity archiving over behavioral niche specializations outperforms single-objective evolution under ecological shocks (+0.418 paired adapted transfer gain [95% bootstrap CI +0.057, +0.778], Wilcoxon p=0.0305). Confirmatory reports in `research/reports/H1_multi_niche_v3_analysis.md` and `research/reports/ORIGIN_Multi_Niche_v3_Research_Report.md`.
+* **Strict-budget single-niche replication confirmed (H1-ME v4)** — Fresh paired 40-seed campaign (experiment `59427f9116fa`, 160/160 trials, 0 failures; protocol `research/protocols/paired_v4_strict_cap.md`). Full optimizer batches were reserved before evaluation; all learned trials stayed within the 500,000-step cap (GA 482,451–497,946; MAP-Elites 491,118–499,580). On the registered held-out base-task endpoint, MAP-Elites exceeded GA by +0.679 (95% paired bootstrap CI [+0.112, +1.241], Wilcoxon p=0.0381). Confirmatory reports: `research/reports/H1_v4_strict_cap_analysis.md` and `research/reports/ORIGIN_Single_Niche_v4_Research_Report.md`.
 * **Multi-niche ecological engine & pilot (H1.MN)** — Full dual-resource ecology with zone biomes (`zones`), egocentric 7-D multi-niche sensing vector (`[en, a_dr, a_dc, a_dist, b_dr, b_dc, b_dist]`), multi-target heuristic BFS policies, 2D MAP-Elites niche archiving over `(collected_a, collected_b)`, and 5 transfer variants (`niche_payoff_swap`, `niche_toxic_hazard`, `niche_scarcity_shock`, `niche_a_only`, `niche_b_only`). The 20/20-trial pilot `f8f4c952a5c3` is retained as exploratory instrumentation only: it predates strict batch reservation and a uniquely fixed shock aggregation, so it does **not** decide H1.MN. The strict-cap v3 replication above is the sole confirmatory evidence. See `research/reports/RESULT_PROVENANCE.md`. Regression-tested by 10/10 tests in `tests/test_multi_niche.py`.
 * **Cutting-edge frontend UX & Web Audio gamification** — Complete design system built on
   vanilla CSS with Google Fonts (`Outfit`, `Inter`, `JetBrains Mono`), radial bioluminescent glows,
@@ -131,7 +132,7 @@
 
 ```bash
 $ .venv/bin/python -m pytest tests -ra
-138 passed, 13 skipped       # 151 collected; 10 opt-in browser + 3 PyBullet skips are explicit
+141 passed, 13 skipped       # 154 collected; 10 opt-in browser + 3 PyBullet skips are explicit
 $ .venv/bin/ruff check packages tests scripts benchmarks
 All checks passed!
 $ .venv/bin/mypy packages/origin
@@ -265,11 +266,12 @@ ERROR: epyc is not reachable over SSH.   (expected: node offline — see Blocker
 
 * **Embodied physics calibration.** The yaw-joint + anisotropic-friction design
   has replaced the inert v2 chain, but this Windows host cannot install PyBullet:
-  both CPython 3.12 and a separate CPython 3.10 attempt resolve the source
-  distribution, which requires unavailable Microsoft C++ Build Tools. Docker's
-  daemon is stopped and WSL requires elevation, so neither local Linux route is
-  available without host-owner action. The repository now has a Linux CI gate and
-  a Docker Compose `calibration` profile that write a JSON evidence artifact; run
+  as rechecked 2026-10-09, PyPI supplies no Windows binary wheel for the available
+  CPython 3.10–3.13 targets, so it resolves to a source build that requires
+  unavailable Microsoft C++ Build Tools. Docker's daemon is stopped and WSL
+  requires elevation, so neither local Linux route is available without
+  host-owner action. The repository now has a Linux CI gate and a Docker Compose
+  `calibration` profile that write a JSON evidence artifact; run
   `scripts/probe_embodied_morphology.py --json-out <path>` there. It must pass
   before a new transfer campaign spends seeds.
 * **EPYC compute node is offline.** Diagnosed precisely: the node is on the
@@ -314,12 +316,7 @@ ERROR: epyc is not reachable over SSH.   (expected: node offline — see Blocker
    non-confirmatory control. Do not tune it on existing held-out tasks; if RL is
    strategically important, pre-register a dedicated actor-critic or
    hyperparameter study with fresh train/test seeds.
-6. **Legacy evidence refresh (optional, for additional current claims).** The
-   provenance register now prevents old stores from producing current-looking
-   reports. Re-run any desired single-niche finding under the strict-cap
-   evaluator with a new pre-registered protocol; the legacy raw stores are not
-   present locally, so their old interaction totals must not be reused.
-7. Watch for an upstream fix to the dev-only `braces` advisory (Next lint plugin).
+6. Watch for an upstream fix to the dev-only `braces` advisory (Next lint plugin).
 
 ## Reproduction commands
 
