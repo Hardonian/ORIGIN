@@ -15,6 +15,9 @@ its acceptance harness, not a substitute for a campaign:
 
 Usage:
   .venv/bin/python scripts/probe_embodied_morphology.py
+  .venv/bin/python scripts/probe_embodied_morphology.py \
+      --config configs/actor_critic_embodied_v2.json \
+      --json-out runs/actor_critic_embodied_v2-calibration.json
 """
 
 from __future__ import annotations
@@ -43,17 +46,28 @@ PROGRAMS: dict[str, tuple[int, ...]] = {
 
 
 def campaign_config() -> EmbodiedConfig:
-    """The exact body used by configs/embodied_transfer.json."""
+    """The historical v3 transfer body used when no registration is supplied."""
     return EmbodiedConfig.preset(
         "centipede", n_links=10, link_length=0.10, link_radius=0.028, link_mass=0.12,
         joint_max_torque=1.4, lateral_friction=0.9, episode_seconds=6.0, target_distance=3.0,
     )
 
 
+def config_from_registration(path: Path) -> EmbodiedConfig:
+    """Load exactly the embodied body declared by an experiment registration."""
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if data.get("env_kind") != "embodied":
+        raise ValueError("registered calibration config must declare env_kind='embodied'")
+    env = data.get("env")
+    if not isinstance(env, dict):
+        raise ValueError("registered calibration config must contain an env object")
+    return EmbodiedConfig.from_dict(env)
+
+
 def rest_stability(cfg: EmbodiedConfig) -> list[dict[str, Any]]:
     print("== rest stability (motor primitive: brake) ==")
     results: list[dict[str, Any]] = []
-    for n_links in (5, 10, 20):
+    for n_links in dict.fromkeys((cfg.n_links, 5, 10, 20)):
         c = EmbodiedConfig.from_dict({**cfg.to_dict(), "n_links": n_links})
         env = EmbodiedCreature(c)
         try:
@@ -149,10 +163,20 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         help="write a machine-readable calibration evidence report to this path",
     )
+    parser.add_argument(
+        "--config",
+        type=Path,
+        help="registered embodied experiment JSON whose exact env body must be calibrated",
+    )
     args = parser.parse_args(argv)
-    cfg = campaign_config()
+    try:
+        cfg = config_from_registration(args.config) if args.config else campaign_config()
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        parser.error(f"invalid calibration configuration: {exc}")
+
     if pybullet_engine is None:
         report = unavailable_report(cfg)
+        report["registered_config"] = str(args.config) if args.config else None
         write_report(report, args.json_out)
         print("UNAVAILABLE: PyBullet is required; install the embodied extra on a supported host.")
         return 2
@@ -163,6 +187,7 @@ def main(argv: list[str] | None = None) -> int:
     report = {
         "status": "passed" if passed else "failed",
         "passed": passed,
+        "registered_config": str(args.config) if args.config else None,
         "config_hash": cfg.config_hash(),
         "config": cfg.to_dict(),
         "acceptance": {

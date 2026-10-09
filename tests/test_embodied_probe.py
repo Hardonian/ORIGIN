@@ -30,3 +30,16 @@ def test_probe_writes_explicit_evidence_when_pybullet_is_unavailable(tmp_path, m
     assert "embodied" in report["acceptance"]["command"]
     assert "UNAVAILABLE" in capsys.readouterr().out
     assert not output.with_name(f".{output.name}.tmp").exists()
+
+
+def test_probe_loads_the_exact_registered_embodied_body():
+    probe = _load_probe()
+    config = Path(__file__).resolve().parents[1] / "configs" / "actor_critic_embodied_v2.json"
+
+    body = probe.config_from_registration(config)
+
+    assert body.morphology == "worm"
+    assert body.n_links == 8
+    assert body.episode_seconds == 8.0
+    assert body.joint_axis == "yaw"
+    assert body.lateral_friction > body.longitudinal_friction
