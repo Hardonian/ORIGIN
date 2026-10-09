@@ -29,7 +29,7 @@ Initial hypothesis (to be *tested*, not assumed):
 | Subsystem | Package | State |
 |---|---|---|
 | Deterministic 2D environment | `origin.environments` | working |
-| Articulated-body physics (**PyBullet**) | `origin.environments.embodied` | engine working; crawler redesign awaiting physics calibration — see status ledger |
+| Articulated-body physics (**PyBullet**) | `origin.environments.embodied` | calibrated yaw-joint crawler; fail-closed probe required before embodied campaigns |
 | Organisms (morphology/controller/lineage) | `origin.organisms` | working |
 | Evolution (fixed-objective GA, novelty search, MAP-Elites) | `origin.evolution` | working |
 | Learning (REINFORCE policy-gradient RL baseline) | `origin.learning` | working |
@@ -61,6 +61,21 @@ calibration probe:
 ```bash
 uv pip install -e ".[dev,embodied]" --python .venv/bin/python
 ```
+
+On Windows, PyBullet currently builds from source. Install the Microsoft C++
+Build Tools once, then run the install from its x64 developer environment:
+
+```powershell
+winget install --id Microsoft.VisualStudio.2022.BuildTools --exact --silent --accept-package-agreements --accept-source-agreements --override "--wait --passive --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
+uv venv --python 3.12 .venv
+cmd /d /s /c 'call "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat" && uv pip install -e ".[dev,embodied]" --python .venv\Scripts\python.exe'
+.venv\Scripts\python.exe -m pytest tests/test_embodied.py tests/test_embodied_eval.py tests/test_runner_embodied.py tests/test_embodied_probe.py -q
+.venv\Scripts\python.exe scripts\probe_embodied_morphology.py --json-out runs\embodied-calibration-local.json
+```
+
+The probe is an acceptance gate, not a success command: it exits nonzero and
+writes the evidence when no production gait can move forward at least 5 cm in
+3 seconds while upright.
 
 The probe is fail-closed and can also write durable evidence for a campaign
 review. On a Docker-capable Linux host, the repository's pinned container path

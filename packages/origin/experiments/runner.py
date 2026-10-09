@@ -47,7 +47,7 @@ from origin.evaluation.harness import (
     perturbation_variants,
 )
 from origin.evolution import fine_tune, fixed_objective_ga, map_elites, novelty_search
-from origin.learning import reinforce
+from origin.learning import ppo, reinforce
 from origin.organisms.organism import Organism
 from origin.organisms.policies import GaitPolicy, HeuristicPolicy, RandomPolicy
 
@@ -56,6 +56,7 @@ ALGORITHMS: dict[str, Any] = {
     "novelty_search": novelty_search,
     "map_elites": map_elites,
     "reinforce": reinforce,
+    "ppo": ppo,
 }
 
 # Baselines available per simulator kind.
@@ -69,6 +70,7 @@ DEFAULT_ALGO_KWARGS: dict[str, dict[str, Any]] = {
     "novelty_search": {"pop_size": 48, "mutation_rate": 0.3, "mutation_scale": 0.5},
     "map_elites": {"batch": 24, "grid_shape": [12, 12], "mutation_rate": 0.3, "mutation_scale": 0.5, "morph_strength": 0.3},
     "reinforce": {"hidden": [24], "episodes_per_update": 4, "lr": 0.03, "gamma": 0.99},
+    "ppo": {"hidden": [24], "episodes_per_update": 4, "actor_lr": 0.008, "critic_lr": 0.012, "gamma": 0.99, "lam": 0.95},
 }
 
 
@@ -295,7 +297,7 @@ def _run_trial_embodied(
     fn = ALGORITHMS[algorithm]
     evaluator = EmbodiedEvaluator(base_env=base, train_seeds=train_seeds, budget=budget)
     run_kwargs = dict(kwargs)
-    if algorithm == "reinforce":
+    if algorithm in ("reinforce", "ppo"):
         # The RL loop builds its own envs; hand it a factory for this body.
         run_kwargs["env_factory"] = lambda: EmbodiedCreature(base)
     if algorithm == "map_elites":

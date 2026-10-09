@@ -1,0 +1,45 @@
+{
+  "name": "actor_critic_embodied_v1",
+  "protocol": "actor_critic_v1_embodied",
+  "description": "Pre-registered Actor-Critic (PPO) reinforcement learning benchmark on PyBullet articulated crawler physics (research/protocols/actor_critic_v1.md).",
+  "env_kind": "embodied",
+  "env": {
+    "morphology": "worm",
+    "n_links": 6,
+    "link_length": 0.16,
+    "link_radius": 0.035,
+    "link_mass": 0.25,
+    "joint_max_torque": 2.5,
+    "lateral_friction": 1.25,
+    "longitudinal_friction": 0.20,
+    "joint_axis": "yaw",
+    "episode_seconds": 6.0,
+    "target_distance": 3.0,
+    "target_tolerance": 0.25,
+    "progress_scale": 10.0,
+    "target_reward": 5.0,
+    "upright_bonus": 0.0,
+    "energy_penalty": 0.002,
+    "fall_penalty": 1.0,
+    "seed": 0
+  },
+  "train_seeds": [11, 22, 33],
+  "test_seeds": [101, 202, 303],
+  "budget": 20000,
+  "seeds": [300, 301, 302],
+  "include_baselines": ["random", "scripted_gait"],
+  "transfer": {"adapt": false},
+  "algorithms": {
+    "ppo": {
+      "hidden": [24],
+      "episodes_per_update": 4,
+      "actor_lr": 0.008,
+      "critic_lr": 0.012,
+      "gamma": 0.99,
+      "lam": 0.95,
+      "clip_eps": 0.2,
+      "epochs_per_update": 4,
+      "entropy_coef": 0.015
+    }
+  }
+}
