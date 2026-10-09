@@ -14,7 +14,7 @@
 | 3 | Learning & evolution baselines | **done** | GA, novelty search, MAP-Elites, REINFORCE all run under a shared interaction budget |
 | 4 | Embodied intelligence / morphology transfer | **INVALIDATED — redesigned, awaiting physical acceptance** | The instrument was physically broken (links clumped at one point, capsules vertical) and three measurement defects made every number untrustworthy. All M4 results **retracted** — see the correction at the top of `research/reports/ORIGIN_M4_Embodied_Transfer_Report.md`. The new yaw-jointed, anisotropic-friction crawler has regression coverage, a fail-closed calibration probe, Linux CI coverage, and a containerized evidence path, but it has **not yet passed that probe on a supported PyBullet host**; no embodied claim is restored. |
 | 5 | Experiment orchestration | **done** | `origin.experiments.runner` + `store`; manifests, resume, cancellation, bounded concurrency, CSV/Parquet |
-| 6 | Research lab UI & 3D visualization | **done — cutting edge & gamified** | 8 screens on **Next 16.4.0** with bioluminescent glassmorphism design system; pure Web Audio synthesized SFX (blip, click, step, level-up chime, laser, error); Cybernetic Holodeck HUD with kinematics telemetry and joint load stress heatmap; creature theme picker (Cyberpunk Neon, Bioluminescent Abyssal, Obsidian Stealth, Solar Flare); interactive Grid World trajectory player with speed multipliers (0.5x–5x) and audio step ticks; Gamified Evolutionary Tier Badges (Apex Controller 👑, Adaptive Specialist ⚡, Embryonic Mutator 🧬); Transfer Matrix Heatmap with color-coded adaptation gains; cluster radar sweep widget; floating toast notification system; Playwright browser E2E test suite 8/8 passed. |
+| 6 | Research lab UI & 3D visualization | **done — cutting edge & gamified** | 8 screens on **Next 16.4.0 / React 19.3.0** with bioluminescent glassmorphism design system; pure Web Audio synthesized SFX (blip, click, step, level-up chime, laser, error); Cybernetic Holodeck HUD with kinematics telemetry and joint load stress heatmap; creature theme picker (Cyberpunk Neon, Bioluminescent Abyssal, Obsidian Stealth, Solar Flare); interactive Grid World trajectory player with speed multipliers (0.5x–5x) and audio step ticks; Gamified Evolutionary Tier Badges (Apex Controller 👑, Adaptive Specialist ⚡, Embryonic Mutator 🧬); Transfer Matrix Heatmap with color-coded adaptation gains; cluster radar sweep widget; floating toast notification system; Playwright browser E2E test suite 8/8 passed. |
 | 7 | Local compute distribution & productization | **done — verified locally & multi-process** | Worker model landed and verified across real worker processes: atomic trial claims, heartbeats, stale-worker recovery, keep-first completion, idempotent store merge (`origin-worker`, `origin-merge-stores`, `tests/test_worker_model.py` 19 tests). 3-process CLI campaign: 9/9 trials, claims disjoint (2+4+3), 0 duplicates. Real-crash probe `scripts/probe_worker_recovery.py`: SIGKILL mid-trial -> orphan recovered, 11/11 checks. Cluster orchestrator (`scripts/cluster_manager.py`), diagnostic CLI (`origin-doctor`), and container deployment (`infra/Dockerfile`, `infra/docker-compose.yml`, systemd services) fully operational. Multi-host campaign script (`scripts/origin_remote_worker.sh`) ready for when EPYC tailnode returns online |
 | 8 | First research campaign | **partial — grid half stands** | Grid: pilot 30/30 + study 1 (60/60) + v2 (60/60) + v3 (160/160), all 0 failures. **H1 not established, null BOUNDED**: v3 at n=40 (MDE 0.708) found −0.221 [−0.72, +0.26]. Embodied half is **retracted** with milestone 4. Caveat: any *adaptation-gain* number produced before 2026-10-08 (grid included) was measured in-sample and must be re-run before being cited |
 
@@ -98,6 +98,9 @@
   core dependencies, optional extensions (PyBullet, PyTorch, Playwright), SQLite store
   consistency, API connectivity, Lab UI production builds, and fail-closed embodied
   calibration evidence with a concrete next action (`tests/test_doctor.py`).
+* **Calibration evidence integrity** — passing records require a body config hash,
+  finite positive acceptance values, and at least one measured finite gait gain;
+  malformed or synthetic-looking records remain invalid (`tests/test_api.py`).
 * **Interactive 3D morphology viewer & cluster dashboard** — Lab UI features an
   interactive HTML5 Canvas 3D articulated crawler kinematics simulator with real-time
   gait undulation playback (`wave_a`, `wave_b`, `flex`, `extend`), a real-time
@@ -115,7 +118,7 @@
 
 ```
 $ .venv/bin/python -m pytest tests -ra
-111 passed, 12 skipped       # 123 collected; 9 opt-in browser + 3 PyBullet skips are explicit
+112 passed, 12 skipped       # 124 collected; 9 opt-in browser + 3 PyBullet skips are explicit
 $ .venv/bin/ruff check packages tests scripts benchmarks
 All checks passed!
 $ .venv/bin/mypy packages/origin
@@ -222,10 +225,11 @@ ERROR: epyc is not reachable over SSH.   (expected: node offline — see Blocker
   an analysis run from silently overwriting a prior report.
 * **Frontend dependency advisories.** The 4 Next.js runtime advisories are
   **resolved** by the `next@16.4.0` upgrade (with ESLint 9 flat config replacing
-  the removed `next lint`). One **dev-only** advisory remains unfixable at
-  present: `braces` (via the Next lint plugin), where `braces@3.0.3` is the
-  newest release and the advisory covers all versions. Documented in
-  `SECURITY.md`; not shipped in the app bundle.
+  the removed `next lint`). One **dev-only** vulnerability chain remains
+  unfixable without downgrading Next: `eslint-config-next` → `fast-glob` →
+  `micromatch` → `braces`; npm reports five linked records, and none are in
+  production dependencies. Documented in `SECURITY.md`; not shipped in the
+  app bundle.
 * **REINFORCE is weak** at the pilot budget and previously collapsed to a
   single action; an entropy bonus was added, which raised it above the collapse
   but it still trails the random control on the grid task. Reported honestly; it
