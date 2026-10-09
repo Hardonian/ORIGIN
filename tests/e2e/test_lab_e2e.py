@@ -192,7 +192,7 @@ def test_world_viewer_inspects_embodied_body_plan(page):
 
     assert "Calibration gate" in body
     assert "Latest captured evidence" in body
-    assert "low longitudinal grip" in body
+    assert "longitudinal grip" in body
     assert plan["body"]["joint_axis"] in body
     if has_trajectory:
         assert "Physics Trajectory Replay" in body

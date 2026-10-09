@@ -926,6 +926,14 @@ export default function WorldPage() {
               <span>position gain</span>
               <strong>{plan.body.motor_position_gain.toFixed(2)}</strong>
             </div>
+            <div>
+              <span>longitudinal grip</span>
+              <strong>{plan.body.longitudinal_friction.toFixed(2)}</strong>
+            </div>
+            <div>
+              <span>lateral grip</span>
+              <strong>{plan.body.lateral_friction.toFixed(2)}</strong>
+            </div>
           </div>
 
           {/* Calibration Evidence */}
