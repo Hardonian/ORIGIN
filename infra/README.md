@@ -23,6 +23,24 @@ uv pip install -e ".[dev]" --python .venv/bin/python
 .venv/bin/origin-api  --store runs --host 127.0.0.1 --port 8788
 ```
 
+## Embodied physics calibration
+
+The articulated crawler is gated by a real PyBullet acceptance probe: it must
+remain upright and move forward at least 5 cm in three seconds. The Docker image
+contains the embodied dependency and compiler toolchain, so a Linux Docker host
+can run the exact gate and persist machine-readable evidence without changing the
+workstation's Python installation:
+
+```bash
+docker compose -f infra/docker-compose.yml --profile calibration run --rm calibration
+docker compose -f infra/docker-compose.yml run --rm calibration \
+  cat /origin/runs/embodied-calibration.json
+```
+
+The report records the declared body configuration, every primitive gait,
+forward/lateral displacement, upright status, and the pass/fail decision. It is
+evidence, not a substitute for a completed transfer campaign.
+
 ## Compute worker (optional)
 
 Because a trial is a pure function of `(algorithm, seed, config)`, work can be

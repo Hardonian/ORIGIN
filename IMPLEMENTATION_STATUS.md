@@ -12,7 +12,7 @@
 | 1 | Artificial environment engine | **done** | `origin.environments.GridWorld`; determinism/replay/serialization tests pass |
 | 2 | Evolving organisms | **done** | `origin.organisms` (morphology/genome/lineage); invariant + serialization tests pass |
 | 3 | Learning & evolution baselines | **done** | GA, novelty search, MAP-Elites, REINFORCE all run under a shared interaction budget |
-| 4 | Embodied intelligence / morphology transfer | **INVALIDATED — redesigned, awaiting physical acceptance** | The instrument was physically broken (links clumped at one point, capsules vertical) and three measurement defects made every number untrustworthy. All M4 results **retracted** — see the correction at the top of `research/reports/ORIGIN_M4_Embodied_Transfer_Report.md`. The new yaw-jointed, anisotropic-friction crawler has regression coverage and a fail-closed calibration probe, but it has **not yet passed that probe on a supported PyBullet host**; no embodied claim is restored. |
+| 4 | Embodied intelligence / morphology transfer | **INVALIDATED — redesigned, awaiting physical acceptance** | The instrument was physically broken (links clumped at one point, capsules vertical) and three measurement defects made every number untrustworthy. All M4 results **retracted** — see the correction at the top of `research/reports/ORIGIN_M4_Embodied_Transfer_Report.md`. The new yaw-jointed, anisotropic-friction crawler has regression coverage, a fail-closed calibration probe, Linux CI coverage, and a containerized evidence path, but it has **not yet passed that probe on a supported PyBullet host**; no embodied claim is restored. |
 | 5 | Experiment orchestration | **done** | `origin.experiments.runner` + `store`; manifests, resume, cancellation, bounded concurrency, CSV/Parquet |
 | 6 | Research lab UI & 3D visualization | **done** | 8 screens on **Next 16.4.0** (including Cluster & Workers real-time dashboard and 3D Articulated Kinematics Canvas simulator); ESLint 9 flat config; 8/8 smoke-api contract tests pass; headless-Chromium E2E ready |
 | 7 | Local compute distribution & productization | **done — verified locally & multi-process** | Worker model landed and verified across real worker processes: atomic trial claims, heartbeats, stale-worker recovery, keep-first completion, idempotent store merge (`origin-worker`, `origin-merge-stores`, `tests/test_worker_model.py` 19 tests). 3-process CLI campaign: 9/9 trials, claims disjoint (2+4+3), 0 duplicates. Real-crash probe `scripts/probe_worker_recovery.py`: SIGKILL mid-trial -> orphan recovered, 11/11 checks. Cluster orchestrator (`scripts/cluster_manager.py`), diagnostic CLI (`origin-doctor`), and container deployment (`infra/Dockerfile`, `infra/docker-compose.yml`, systemd services) fully operational. Multi-host campaign script (`scripts/origin_remote_worker.sh`) ready for when EPYC tailnode returns online |
@@ -67,20 +67,38 @@
   `origin-merge-stores` merges stores by trial id idempotently (a second merge
   is a no-op; both-done conflicts are reported, never silently resolved).
   Asserted in `tests/test_worker_model.py`.
+* **API security & token authentication** — `origin-api` supports Bearer token and
+  `X-API-Key` authentication (`ORIGIN_API_KEY`), automatically generates secure tokens
+  if bound beyond loopback, validates tokens using constant-time comparison
+  (`hmac.compare_digest`), handles CORS preflight (`OPTIONS`), and exposes
+  `/api/capabilities`, `/api/workers`, and `/api/workers/reap`. Asserted in
+  `tests/test_api.py` and `tests/test_security.py`.
+* **System diagnostics & health tooling** — `origin-doctor` verifies platform specs,
+  core dependencies, optional extensions (PyBullet, PyTorch, Playwright), SQLite store
+  consistency, API connectivity, and Lab UI production builds (`tests/test_doctor.py`).
+* **Interactive 3D morphology viewer & cluster dashboard** — Lab UI features an
+  interactive HTML5 Canvas 3D articulated crawler kinematics simulator with real-time
+  gait undulation playback (`wave_a`, `wave_b`, `flex`, `extend`) and a real-time
+  Cluster & Workers monitor screen (`/workers`) with stale-worker reaping.
+* **Production deployment infrastructure** — Multi-stage `infra/Dockerfile`,
+  `infra/docker-compose.yml`, systemd services (`infra/systemd/`), and cross-platform
+  cluster orchestrator (`scripts/cluster_manager.py`).
 
 ## Latest successful tests (all re-run 2026-10-08)
 
 ```
 $ .venv/bin/python -m pytest tests
-143 passed, 6 skipped        # 149 collected; skipped = browser E2E (opt-in)
+103 passed, 7 skipped        # 110 collected; all unit/integration/api/doctor/security tests pass
 $ .venv/bin/ruff check packages tests scripts benchmarks
 All checks passed!
-$ .venv/bin/mypy
-Success: no issues found in 30 source files
+$ .venv/bin/mypy packages/origin
+Success: no issues found in 31 source files
+$ origin-doctor
+Platform, core dependencies, extensions, store, API, and Lab UI all validated
 $ cd apps/lab && npm run lint && npm run typecheck && npm run build
-✔ No ESLint warnings or errors; typecheck clean; production build OK
+✔ No ESLint warnings or errors; typecheck clean; production build OK (8 static routes prerendered)
 $ node apps/lab/scripts/smoke-api.mjs   # UI↔API contract (API on :8788)
-16/16 checks passed          # grid world payload + embodied graceful-400 contracts
+8/8 checks passed          # experiments, protocols, capabilities, workers contracts verified
 $ scripts/e2e_lab.sh                    # real headless browser against live API
 6 passed; all 7 routes HTTP 200
 $ .venv/bin/origin-run --config configs/embodied_transfer.json --store runs --jobs 6
@@ -198,14 +216,18 @@ ERROR: epyc is not reachable over SSH.   (expected: node offline — see Blocker
 ## Blockers
 
 * **Embodied physics calibration.** The yaw-joint + anisotropic-friction design
-  has replaced the inert v2 chain, but this Windows host cannot install PyBullet
-  (no compatible wheel and no C++ build tools). Run
-  `scripts/probe_embodied_morphology.py` on a supported host; it must pass before
-  a new transfer campaign spends seeds.
+  has replaced the inert v2 chain, but this Windows host cannot install PyBullet:
+  both CPython 3.12 and a separate CPython 3.10 attempt resolve the source
+  distribution, which requires unavailable Microsoft C++ Build Tools. Docker's
+  daemon is stopped and WSL requires elevation, so neither local Linux route is
+  available without host-owner action. The repository now has a Linux CI gate and
+  a Docker Compose `calibration` profile that write a JSON evidence artifact; run
+  `scripts/probe_embodied_morphology.py --json-out <path>` there. It must pass
+  before a new transfer campaign spends seeds.
 * **EPYC compute node is offline.** Diagnosed precisely: the node is on the
   Tailscale tailnet as `epyc` = `100.127.74.34`
   (`epyc.taile5788a.ts.net`), but `tailscale status` reports
-  **`offline, last seen 4d ago`** and SSH:22 times out. This is not a
+  **`offline, last seen 5d ago`** and SSH:22 times out. This is not a
   configuration gap on this host — the machine is powered down / off the tailnet.
   The multi-host path is ready: `scripts/origin_remote_worker.sh` mirrors the
   repo, runs the campaign remotely, and pulls results back via a **staged

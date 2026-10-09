@@ -62,22 +62,59 @@ calibration probe:
 uv pip install -e ".[dev,embodied]" --python .venv/bin/python
 ```
 
-Run a bounded experiment:
+The probe is fail-closed and can also write durable evidence for a campaign
+review. On a Docker-capable Linux host, the repository's pinned container path
+runs the same command without requiring a local compiler:
 
 ```bash
-.venv/bin/origin-run --config configs/pilot.json --out runs
+docker compose -f infra/docker-compose.yml --profile calibration run --rm calibration
+# evidence is persisted in the named origin-data volume at
+# /origin/runs/embodied-calibration.json
 ```
 
-Inspect results / launch the read API:
+GitHub Actions is configured to run this PyBullet regression suite and
+calibration gate on Linux for every pull request; a failed or unavailable probe
+cannot be mistaken for a successful embodied result.
+
+Run system diagnostics:
 
 ```bash
-.venv/bin/origin-api --store runs --host 127.0.0.1 --port 8788
+origin-doctor
 ```
 
-Run the browser end-to-end tests (starts the API and the UI, then tears them down):
+Run a bounded experiment or local worker cluster:
 
 ```bash
-scripts/e2e_lab.sh
+# Single-runner mode
+origin-run --config configs/pilot.json --store runs --jobs 4
+
+# Distributed worker model (atomic claims, heartbeats, automatic stale recovery)
+origin-worker --config configs/pilot.json --store runs --stale-after 120
+
+# Or manage a cluster of concurrent worker processes:
+python scripts/cluster_manager.py --config configs/pilot.json --workers 4
+```
+
+Launch the API server and Research Lab UI:
+
+```bash
+# API server (loopback default, token authenticated on external interfaces)
+origin-api --store runs --host 127.0.0.1 --port 8788
+
+# Research Lab UI (Next.js 16 with 3D creature simulator & cluster dashboard)
+cd apps/lab && npm run start   # runs on http://127.0.0.1:4317
+```
+
+Containerized deployment (Docker Compose):
+
+```bash
+docker compose -f infra/docker-compose.yml up --build
+```
+
+Run the UI↔API contract smoke tests:
+
+```bash
+node apps/lab/scripts/smoke-api.mjs
 ```
 
 Run the pre-registered powered replication of H1, then generate its report and the

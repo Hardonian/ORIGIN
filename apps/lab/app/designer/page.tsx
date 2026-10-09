@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { apiGet, apiPost } from "@/lib/api";
+import { apiGet, apiPost, LogResponse } from "@/lib/api";
 
 interface Protocol {
   file: string;
@@ -18,6 +18,9 @@ export default function DesignerPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [logLines, setLogLines] = useState<string[]>([]);
+  const [showLogs, setShowLogs] = useState(false);
+  const [pollingLogs, setPollingLogs] = useState(false);
 
   useEffect(() => {
     apiGet<Protocol[]>("/api/protocols")
@@ -27,6 +30,22 @@ export default function DesignerPage() {
       })
       .catch((e) => setErr(String(e)));
   }, []);
+
+  useEffect(() => {
+    if (!pollingLogs) return;
+    const fetchLogs = () => {
+      apiGet<LogResponse>("/api/logs?file=launched.log&lines=60")
+        .then((res) => {
+          setLogLines(res.lines || []);
+        })
+        .catch(() => {
+          /* ignore log read errors */
+        });
+    };
+    fetchLogs();
+    const interval = setInterval(fetchLogs, 2500);
+    return () => clearInterval(interval);
+  }, [pollingLogs]);
 
   function pick(i: number) {
     setSel(i);
@@ -46,6 +65,8 @@ export default function DesignerPage() {
         cfg
       );
       setMsg(`Launched. Config: ${res.config} · log: ${res.log}`);
+      setShowLogs(true);
+      setPollingLogs(true);
     } catch (e) {
       setErr(String(e));
     } finally {
@@ -75,12 +96,66 @@ export default function DesignerPage() {
           <button className="primary" onClick={launch} disabled={busy || !text}>
             {busy ? "launching…" : "Launch experiment"}
           </button>
+          <button
+            onClick={() => {
+              setShowLogs((prev) => !prev);
+              setPollingLogs((prev) => !prev);
+            }}
+          >
+            {showLogs ? "Hide logs" : "View launched logs"}
+          </button>
         </div>
         {protocols[sel] && <p className="muted" style={{ marginTop: 8 }}>{protocols[sel].description}</p>}
       </div>
 
       {msg && <div className="panel"><p>{msg}</p></div>}
       {err && <div className="panel"><p className="err">{err}</p></div>}
+
+      {showLogs && (
+        <div className="panel">
+          <div className="row" style={{ justifyContent: "space-between", marginBottom: 8 }}>
+            <h2 style={{ margin: 0 }}>Live Execution Log (launched.log)</h2>
+            <div className="row">
+              <label style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
+                <input
+                  type="checkbox"
+                  checked={pollingLogs}
+                  onChange={(e) => setPollingLogs(e.target.checked)}
+                />
+                Auto-refresh (2.5s)
+              </label>
+              <button
+                style={{ fontSize: 12, padding: "2px 8px" }}
+                onClick={() =>
+                  apiGet<LogResponse>("/api/logs?file=launched.log&lines=60").then((r) =>
+                    setLogLines(r.lines || [])
+                  )
+                }
+              >
+                Refresh
+              </button>
+            </div>
+          </div>
+          <div
+            style={{
+              background: "#080c10",
+              border: "1px solid var(--border)",
+              borderRadius: 6,
+              padding: 12,
+              fontFamily: "monospace",
+              fontSize: 12,
+              maxHeight: 280,
+              overflowY: "auto",
+              whiteSpace: "pre-wrap",
+              color: "#c9d1d9",
+            }}
+          >
+            {logLines.length === 0
+              ? "(No log entries recorded yet)"
+              : logLines.map((line, idx) => <div key={idx}>{line}</div>)}
+          </div>
+        </div>
+      )}
 
       <div className="panel">
         <h2>Configuration</h2>

@@ -7,8 +7,14 @@ workstation; it does not expose a public attack surface by default.
 
 ## Design guarantees
 
-* The read API binds to `127.0.0.1` by default. It must not be exposed to an
-  untrusted network without an explicit reverse proxy and authentication.
+* The API binds to `127.0.0.1` by default.
+* If bound to an external network interface (e.g. `--host 0.0.0.0`), token authentication
+  is automatically enforced: `origin-api` requires `ORIGIN_API_KEY` (or auto-generates a
+  cryptographically secure secret token printed to the operator). Requests must provide
+  `Authorization: Bearer <token>` or `X-API-Key: <token>`.
+* Timing-safe verification (`hmac.compare_digest`) protects against timing side-channels.
+* Mutating endpoints (launching experiments, reaping workers) always require valid authentication
+  when an API key is configured.
 * Organisms are **data-only**. A controller is a plain MLP genome serialized as
   JSON arrays; no externally supplied executable code is ever run.
 * Checkpoint/organism restore uses JSON, never `pickle`, so restoring an

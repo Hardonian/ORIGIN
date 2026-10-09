@@ -231,3 +231,23 @@ def test_designer_loads_validated_protocols(page):
     body = _wait_for_text(page, protocols[0]["name"])
     assert "Experiment designer" in body
     assert page.locator("textarea").input_value().strip().startswith("{")
+
+
+def test_evolution_page_renders_distribution(page):
+    exps = _api("/api/experiments")
+    assert exps, "no experiments in store"
+    exp_id = exps[0]["id"]
+
+    _goto(page, "/evolution")
+    body = _wait_for_text(page, "Evolution explorer")
+    assert "Fitness distributions" in body
+    page.locator("select").first.select_option(exp_id)
+    body = page.inner_text("body")
+    assert "seed" in body or "mean best fitness" in body or "No trials" in body
+
+
+def test_workers_dashboard_renders_cluster_status(page):
+    _goto(page, "/workers")
+    body = _wait_for_text(page, "System Capabilities")
+    assert "Cluster & Compute Workers" in body
+    assert "Reap Stale Workers" in body

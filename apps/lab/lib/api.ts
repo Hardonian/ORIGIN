@@ -63,6 +63,28 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
   return data as T;
 }
 
+export function getExportUrl(experimentId?: string, format: "csv" | "json" = "csv"): string {
+  const token = getAuthToken();
+  const q = new URLSearchParams();
+  if (experimentId) q.set("experiment", experimentId);
+  q.set("format", format);
+  if (token) q.set("token", token);
+  return `${API_BASE}/api/export?${q.toString()}`;
+}
+
+export function getArtifactFileUrl(artifactId: number): string {
+  const token = getAuthToken();
+  const q = new URLSearchParams({ id: String(artifactId) });
+  if (token) q.set("token", token);
+  return `${API_BASE}/api/artifact-file?${q.toString()}`;
+}
+
+export interface LogResponse {
+  file: string;
+  lines: string[];
+  total_lines: number;
+}
+
 export interface WorkerInfo {
   id: string;
   host: string;

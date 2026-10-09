@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { API_BASE, apiGet, ExperimentSummary } from "@/lib/api";
+import { apiGet, ExperimentSummary, getArtifactFileUrl } from "@/lib/api";
 
 interface Artifact {
   id: number;
@@ -69,7 +69,7 @@ export default function ArtifactsPage() {
               <div key={p.id}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={`${API_BASE}/api/artifact-file?id=${p.id}`}
+                  src={getArtifactFileUrl(p.id)}
                   alt={p.path}
                   style={{ maxWidth: 420, border: "1px solid #222d3a", borderRadius: 6 }}
                 />
@@ -100,7 +100,7 @@ export default function ArtifactsPage() {
                 <td className="muted">{a.trial_id ?? "—"}</td>
                 <td className="muted">{a.path}</td>
                 <td>
-                  <a href={`${API_BASE}/api/artifact-file?id=${a.id}`} target="_blank" rel="noreferrer">
+                  <a href={getArtifactFileUrl(a.id)} target="_blank" rel="noreferrer">
                     open
                   </a>
                 </td>

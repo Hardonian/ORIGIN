@@ -157,9 +157,9 @@ export default function WorkersPage() {
       </div>
 
       {/* Platform & Simulators capability card */}
-      {caps && (
-        <div className="panel" style={{ marginBottom: 16 }}>
-          <h2 style={{ marginTop: 0, fontSize: 14 }}>Host &amp; Compute Capabilities</h2>
+      <div className="panel" style={{ marginBottom: 16 }}>
+        <h2 style={{ marginTop: 0, fontSize: 14 }}>System Capabilities</h2>
+        {caps ? (
           <div className="row" style={{ gap: 24, fontSize: 13 }}>
             <div>
               <span className="muted">Platform:</span> <strong>{caps.platform}</strong> ({caps.cpus} CPUs)
@@ -188,8 +188,10 @@ export default function WorkersPage() {
               </span>
             </div>
           </div>
-        </div>
-      )}
+        ) : (
+          <p className="muted">Loading host and simulator capabilities…</p>
+        )}
+      </div>
 
       {/* Workers table */}
       <div className="panel">

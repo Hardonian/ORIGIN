@@ -8,7 +8,10 @@ database or extra services. Binds to loopback only by default.
 from __future__ import annotations
 
 import argparse
+import collections
+import csv
 import hmac
+import io
 import json
 import os
 import platform
@@ -16,6 +19,8 @@ import secrets
 import statistics as st
 import subprocess
 import sys
+import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -24,6 +29,30 @@ from urllib.parse import parse_qs, urlparse
 from origin.experiments.store import Store
 
 MAX_LAUNCH_BUDGET = 5_000_000  # hard cap for UI-launched experiments
+
+
+class RateLimiter:
+    """Thread-safe sliding-window rate limiter per client IP."""
+
+    def __init__(self, max_requests: int = 300, window_seconds: float = 60.0):
+        self.max_requests = max_requests
+        self.window_seconds = window_seconds
+        self._lock = threading.Lock()
+        self._requests: dict[str, collections.deque[float]] = {}
+
+    def is_allowed(self, client_ip: str) -> bool:
+        if self.max_requests <= 0:
+            return True
+        now = time.time()
+        cutoff = now - self.window_seconds
+        with self._lock:
+            q = self._requests.setdefault(client_ip, collections.deque())
+            while q and q[0] < cutoff:
+                q.popleft()
+            if len(q) >= self.max_requests:
+                return False
+            q.append(now)
+            return True
 
 
 def _compare(store: Store, exp_id: str) -> dict:
@@ -231,13 +260,68 @@ def _launch(store: Store, cfg: dict) -> dict:
     return {"launched": True, "config": str(tmp), "log": str(log)}
 
 
+def _serve_logs(store: Store, q: dict[str, list[str]]) -> dict:
+    fname = q.get("file", ["launched.log"])[0]
+    if not fname.endswith(".log") or "/" in fname or "\\" in fname or ".." in fname:
+        raise ValueError("file must be a .log file name without path separators")
+    log_path = Path(store.root).resolve() / fname
+    if not log_path.exists():
+        return {"file": fname, "lines": [], "total_lines": 0}
+    try:
+        lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except Exception as exc:
+        raise ValueError(f"failed to read log file: {exc}") from exc
+    max_lines = int(q.get("lines", ["100"])[0])
+    max_lines = min(max(1, max_lines), 1000)
+    tail = lines[-max_lines:]
+    return {"file": fname, "lines": tail, "total_lines": len(lines)}
+
+
+def _export_trials(store: Store, exp_id: str | None, format_kind: str = "csv") -> tuple[bytes, str, str]:
+    trials = store.trials(exp_id)
+    if format_kind == "json":
+        data = json.dumps(trials, indent=2, default=str).encode("utf-8")
+        filename = f"trials_{exp_id or 'all'}.json"
+        return data, "application/json", filename
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "id", "experiment_id", "algorithm", "seed", "status",
+        "best_fitness", "train_fitness", "interactions", "budget", "error"
+    ])
+    for t in trials:
+        writer.writerow([
+            t.get("id"),
+            t.get("experiment_id"),
+            t.get("algorithm"),
+            t.get("seed"),
+            t.get("status"),
+            t.get("best_fitness"),
+            t.get("train_fitness"),
+            t.get("interactions"),
+            t.get("budget"),
+            t.get("error") or "",
+        ])
+    data = output.getvalue().encode("utf-8")
+    filename = f"trials_{exp_id or 'all'}.csv"
+    return data, "text/csv; charset=utf-8", filename
+
+
 def make_handler(
     store: Store,
     api_key: str | None = None,
     auth_required: bool = False,
+    enable_rate_limit: bool = True,
 ) -> type[BaseHTTPRequestHandler]:
+    read_limiter = RateLimiter(max_requests=300, window_seconds=60.0) if enable_rate_limit else None
+    mutation_limiter = RateLimiter(max_requests=30, window_seconds=60.0) if enable_rate_limit else None
+
     class Handler(BaseHTTPRequestHandler):
         server_version = "OriginLab/1.0"
+
+        def _client_ip(self) -> str:
+            return self.client_address[0] if self.client_address else "127.0.0.1"
 
         def _send(self, payload: Any, code: int = 200) -> None:
             body = json.dumps(payload, default=str).encode()
@@ -247,8 +331,15 @@ def make_handler(
             self.send_header("Access-Control-Allow-Origin", "*")
             self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
             self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("X-Frame-Options", "DENY")
+            self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
+            self.send_header("Cache-Control", "no-store, max-age=0")
             self.end_headers()
-            self.wfile.write(body)
+            try:
+                self.wfile.write(body)
+            except (ConnectionResetError, ConnectionAbortedError, BrokenPipeError):
+                pass
 
         def log_message(self, *a: Any) -> None:  # quieter
             pass
@@ -258,6 +349,9 @@ def make_handler(
             self.send_header("Access-Control-Allow-Origin", "*")
             self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
             self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("X-Frame-Options", "DENY")
+            self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
             self.end_headers()
 
         def _check_auth(self) -> bool:
@@ -297,10 +391,20 @@ def make_handler(
             self.send_header("Content-Type", ctype)
             self.send_header("Content-Length", str(len(data)))
             self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("X-Frame-Options", "DENY")
+            self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
             self.end_headers()
-            self.wfile.write(data)
+            try:
+                self.wfile.write(data)
+            except (ConnectionResetError, ConnectionAbortedError, BrokenPipeError):
+                pass
 
         def do_GET(self) -> None:
+            ip = self._client_ip()
+            if read_limiter and not read_limiter.is_allowed(ip):
+                return self._send({"error": "rate_limit_exceeded", "message": "Too many requests. Please wait before retrying."}, 429)
+
             url = urlparse(self.path)
             q = parse_qs(url.query)
 
@@ -336,6 +440,26 @@ def make_handler(
             try:
                 if url.path == "/api/artifact-file":
                     return self._serve_artifact(q)
+                if url.path == "/api/logs":
+                    return self._send(_serve_logs(store, q))
+                if url.path == "/api/export":
+                    exp_id = q.get("experiment", [None])[0]
+                    fmt_kind = q.get("format", ["csv"])[0].lower()
+                    data, ctype, fname = _export_trials(store, exp_id, fmt_kind)
+                    self.send_response(200)
+                    self.send_header("Content-Type", ctype)
+                    self.send_header("Content-Disposition", f'attachment; filename="{fname}"')
+                    self.send_header("Content-Length", str(len(data)))
+                    self.send_header("Access-Control-Allow-Origin", "*")
+                    self.send_header("X-Content-Type-Options", "nosniff")
+                    self.send_header("X-Frame-Options", "DENY")
+                    self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
+                    self.end_headers()
+                    try:
+                        self.wfile.write(data)
+                    except (ConnectionResetError, ConnectionAbortedError, BrokenPipeError):
+                        pass
+                    return
                 if url.path == "/api/experiments":
                     exps = store.list_experiments()
                     for e in exps:
@@ -397,6 +521,10 @@ def make_handler(
                 return self._send({"error": f"{type(exc).__name__}: {exc}"}, 500)
 
         def do_POST(self) -> None:
+            ip = self._client_ip()
+            if mutation_limiter and not mutation_limiter.is_allowed(ip):
+                return self._send({"error": "rate_limit_exceeded", "message": "Too many requests. Please wait before retrying."}, 429)
+
             url = urlparse(self.path)
 
             # Mutations always require auth when api_key is configured
@@ -440,6 +568,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--api-key", default=os.getenv("ORIGIN_API_KEY"), help="API key for authentication (or set ORIGIN_API_KEY)")
     ap.add_argument("--require-auth", action="store_true", help="require authentication for read endpoints as well as mutations")
     ap.add_argument("--insecure-no-auth", action="store_true", help="allow unauthenticated non-loopback binding")
+    ap.add_argument("--no-rate-limit", action="store_true", help="disable request rate limiting")
     args = ap.parse_args(argv)
 
     key = args.api_key
@@ -449,9 +578,18 @@ def main(argv: list[str] | None = None) -> int:
         print(f"SECURITY: Binding to non-loopback {args.host}. Generated API Key: {key}")
 
     store = Store(args.store)
-    server = ThreadingHTTPServer((args.host, args.port), make_handler(store, api_key=key, auth_required=args.require_auth))
+    server = ThreadingHTTPServer(
+        (args.host, args.port),
+        make_handler(
+            store,
+            api_key=key,
+            auth_required=args.require_auth,
+            enable_rate_limit=not args.no_rate_limit,
+        ),
+    )
     auth_status = f"authenticated ({'all' if args.require_auth else 'write-only'})" if key else "unauthenticated"
-    print(f"ORIGIN lab API on http://{args.host}:{args.port} [{auth_status}] (store={Path(args.store).resolve()})")
+    rate_status = "rate-limited" if not args.no_rate_limit else "no-rate-limit"
+    print(f"ORIGIN lab API on http://{args.host}:{args.port} [{auth_status}, {rate_status}] (store={Path(args.store).resolve()})")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

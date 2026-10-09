@@ -116,3 +116,63 @@ def test_api_workers_and_reap(test_server):
         data = json.loads(res.read().decode())
         assert data["reaped"] is True
         assert "worker-1" in data["dead_workers"]
+
+
+def test_api_security_headers(test_server):
+    base_url, _, _ = test_server
+    with urlopen(f"{base_url}/api/health") as res:
+        assert res.headers.get("X-Content-Type-Options") == "nosniff"
+        assert res.headers.get("X-Frame-Options") == "DENY"
+        assert res.headers.get("Referrer-Policy") == "strict-origin-when-cross-origin"
+        assert "no-store" in res.headers.get("Cache-Control", "")
+
+
+def test_api_logs_endpoint(test_server):
+    base_url, store, _ = test_server
+    log_file = store.root / "launched.log"
+    log_file.write_text("line 1\nline 2\nline 3\n")
+
+    with urlopen(f"{base_url}/api/logs?file=launched.log&lines=2") as res:
+        assert res.status == 200
+        data = json.loads(res.read().decode())
+        assert data["file"] == "launched.log"
+        assert data["lines"] == ["line 2", "line 3"]
+        assert data["total_lines"] == 3
+
+    # Traversal attempt rejected
+    with pytest.raises(HTTPError) as exc_info:
+        urlopen(f"{base_url}/api/logs?file=../etc/passwd")
+    assert exc_info.value.code == 400
+
+
+def test_api_export_trials(test_server):
+    base_url, store, _ = test_server
+    store.upsert_experiment("exp-1", "exp-name", "gridworld", "hash1", {}, "abc1234")
+    store.add_trial("t-1", "exp-1", "random", 42, 1000)
+    store.complete_trial("t-1", 100, 1.5, 1.2, {"reward": 1.5})
+
+    # CSV export
+    with urlopen(f"{base_url}/api/export?experiment=exp-1&format=csv") as res:
+        assert res.status == 200
+        assert "text/csv" in res.headers.get("Content-Type", "")
+        body = res.read().decode()
+        assert "id,experiment_id,algorithm,seed,status" in body
+        assert "t-1,exp-1,random,42,done" in body
+
+    # JSON export
+    with urlopen(f"{base_url}/api/export?experiment=exp-1&format=json") as res:
+        assert res.status == 200
+        assert "application/json" in res.headers.get("Content-Type", "")
+        data = json.loads(res.read().decode())
+        assert len(data) == 1
+        assert data[0]["id"] == "t-1"
+
+
+def test_api_rate_limiter_logic():
+    from origin.experiments.api import RateLimiter
+
+    limiter = RateLimiter(max_requests=2, window_seconds=10.0)
+    assert limiter.is_allowed("1.2.3.4") is True
+    assert limiter.is_allowed("1.2.3.4") is True
+    assert limiter.is_allowed("1.2.3.4") is False
+    assert limiter.is_allowed("5.6.7.8") is True

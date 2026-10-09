@@ -87,7 +87,7 @@ UI_PID=$!
 wait_for "http://127.0.0.1:${UI_PORT}/" "UI"
 
 echo "[e2e] route preflight (server-side, independent of the browser)"
-for r in / /world /evolution /designer /benchmark /artifacts /failures; do
+for r in / /world /evolution /designer /benchmark /workers /artifacts /failures; do
   printf '  %-12s HTTP %s\n' "$r" "$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "http://127.0.0.1:${UI_PORT}${r}")"
 done
 

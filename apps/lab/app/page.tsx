@@ -6,6 +6,7 @@ import {
   ExperimentSummary,
   Comparison,
   fmt,
+  getExportUrl,
 } from "@/lib/api";
 
 export default function OverviewPage() {
@@ -13,6 +14,10 @@ export default function OverviewPage() {
   const [err, setErr] = useState<string | null>(null);
   const [sel, setSel] = useState<string | null>(null);
   const [cmp, setCmp] = useState<Comparison | null>(null);
+  const [live, setLive] = useState(false);
+  const [tick, setTick] = useState(0);
+
+  const reload = () => setTick((t) => t + 1);
 
   useEffect(() => {
     apiGet<ExperimentSummary[]>("/api/experiments")
@@ -21,14 +26,20 @@ export default function OverviewPage() {
         if (d.length) setSel((cur) => cur ?? d[0].id);
       })
       .catch((e) => setErr(String(e)));
-  }, []);
+  }, [tick]);
 
   useEffect(() => {
     if (!sel) return;
     apiGet<Comparison>(`/api/compare?experiment=${sel}`)
       .then(setCmp)
       .catch((e) => setErr(String(e)));
-  }, [sel]);
+  }, [sel, tick]);
+
+  useEffect(() => {
+    if (!live) return;
+    const interval = setInterval(reload, 3000);
+    return () => clearInterval(interval);
+  }, [live]);
 
   if (err)
     return (
@@ -44,11 +55,45 @@ export default function OverviewPage() {
 
   return (
     <div>
-      <h1>Research overview</h1>
-      <p className="sub">
-        Active and completed experiments, method comparison and resource utilisation.
-        Every value is read from the persisted experiment store.
-      </p>
+      <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+        <div>
+          <h1>Research overview</h1>
+          <p className="sub" style={{ margin: 0 }}>
+            Active and completed experiments, method comparison and resource utilisation.
+            Every value is read from the persisted experiment store.
+          </p>
+        </div>
+        <div className="row">
+          <label style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
+            <input
+              type="checkbox"
+              checked={live}
+              onChange={(e) => setLive(e.target.checked)}
+            />
+            Live updates (3s)
+          </label>
+          <button style={{ fontSize: 12, padding: "3px 8px" }} onClick={reload}>
+            Refresh
+          </button>
+          {sel && (
+            <a
+              href={getExportUrl(sel, "csv")}
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                fontSize: 12,
+                padding: "3px 8px",
+                background: "var(--panel2)",
+                border: "1px solid var(--border)",
+                borderRadius: 6,
+                color: "var(--accent)",
+              }}
+            >
+              Export Trials CSV
+            </a>
+          )}
+        </div>
+      </div>
 
       <div className="panel">
         <h2>Experiments</h2>

@@ -43,6 +43,15 @@ services:
     depends_on:
       - api
 
+  calibration:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+    profiles: ["calibration"]
+    command: python scripts/probe_embodied_morphology.py --json-out /origin/runs/embodied-calibration.json
+    volumes:
+      - origin-data:/origin/runs
+
 volumes:
   origin-data:
     name: origin-runs-data

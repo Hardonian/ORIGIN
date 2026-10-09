@@ -160,7 +160,7 @@ export default function WorldPage() {
 
   return (
     <div>
-      <h1>World &amp; body viewer</h1>
+      <h1>World viewer &amp; body plans</h1>
       <p className="sub">
         Grid experiments are replayed from stored organisms. Embodied experiments render their
         persisted body specification and calibration gate; no physics trajectory is displayed

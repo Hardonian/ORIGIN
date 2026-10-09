@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { apiGet, apiPost, Comparison, ExperimentSummary, fmt } from "@/lib/api";
+import { apiGet, Comparison, ExperimentSummary, fmt, getExportUrl } from "@/lib/api";
 
 export default function BenchmarkPage() {
   const [exps, setExps] = useState<ExperimentSummary[]>([]);
@@ -30,11 +30,32 @@ export default function BenchmarkPage() {
 
   return (
     <div>
-      <h1>Benchmark analysis</h1>
-      <p className="sub">
-        Method comparison across held-out evaluation and cross-morphology / perturbation
-        transfer, with interaction budgets reported explicitly.
-      </p>
+      <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+        <div>
+          <h1>Benchmark analysis</h1>
+          <p className="sub" style={{ margin: 0 }}>
+            Method comparison across held-out evaluation and cross-morphology / perturbation
+            transfer, with interaction budgets reported explicitly.
+          </p>
+        </div>
+        {expId && (
+          <a
+            href={getExportUrl(expId, "csv")}
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              fontSize: 12,
+              padding: "4px 10px",
+              background: "var(--panel2)",
+              border: "1px solid var(--border)",
+              borderRadius: 6,
+              color: "var(--accent)",
+            }}
+          >
+            Export Benchmark CSV
+          </a>
+        )}
+      </div>
       {err && <p className="err">{err}</p>}
 
       <div className="panel">
