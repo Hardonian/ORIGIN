@@ -39,7 +39,7 @@ def test_multi_niche_config_validation():
     assert cfg.niche_distribution == "zones"
 
     # Rejection of negative resources
-    with pytest.raises(ValueError, match="n_resources_b must be >= 0"):
+    with pytest.raises(ValueError, match="n_resources, n_resources_b and n_hazards must be >= 0"):
         GridWorldConfig(n_resources_b=-1)
 
     # Rejection of invalid distribution

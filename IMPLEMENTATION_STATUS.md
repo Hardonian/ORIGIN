@@ -115,6 +115,12 @@
   orchestration across Windows, Linux, and macOS, compiling the selected API URL into the
   Next bundle, checking the live UI/API contract, starting backend & UI with clean process
   lifecycle management, preflighting all 8 routes, and verifying live rendering.
+* **Lab interaction resilience & accessibility** — shared notifications now expose
+  screen-reader live regions with dismiss controls, navigation exposes current-page and
+  pressed state, the token editor is a modal dialog with keyboard semantics, and global
+  focus-visible styling is present. The shared API client now returns structured
+  `ApiError` failures and aborts stalled requests after 15 seconds, so every screen can
+  distinguish auth, server, and connectivity failures without hanging indefinitely.
 * **Production deployment infrastructure** — Multi-stage `infra/Dockerfile`,
   `infra/docker-compose.yml`, systemd services (`infra/systemd/`), and cross-platform
   cluster orchestrator (`scripts/cluster_manager.py`).
@@ -123,7 +129,7 @@
 
 ```
 $ .venv/bin/python -m pytest tests -ra
-118 passed, 12 skipped       # 130 collected; 9 opt-in browser + 3 PyBullet skips are explicit
+128 passed, 12 skipped       # 140 collected; 9 opt-in browser + 3 PyBullet skips are explicit
 $ .venv/bin/ruff check packages tests scripts benchmarks
 All checks passed!
 $ .venv/bin/mypy packages/origin

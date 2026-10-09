@@ -367,7 +367,7 @@ def make_handler(
             with contextlib.suppress(ConnectionResetError, ConnectionAbortedError, BrokenPipeError):
                 self.wfile.write(body)
 
-        def log_message(self, *a: Any) -> None:  # quieter
+        def log_message(self, format: str, *args: Any) -> None:  # quieter
             pass
 
         def do_OPTIONS(self) -> None:

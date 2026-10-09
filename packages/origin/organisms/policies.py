@@ -85,9 +85,12 @@ class HeuristicPolicy:
                     return a
             return 4
         # walk back to the first step of the path
-        node = goal
-        while prev[node] is not None and prev[node] != start:
-            node = prev[node]  # type: ignore[assignment]
+        node: tuple[int, int] = goal
+        while True:
+            parent = prev.get(node)
+            if parent is None or parent == start:
+                break
+            node = parent
         step = (node[0] - start[0], node[1] - start[1])
         inv = {v: k for k, v in ACTION_DELTAS.items()}
         return inv.get(step, 4)
@@ -121,4 +124,4 @@ class GaitPolicy:
     def act(self, obs: np.ndarray, env: GridWorld | None = None, deterministic: bool = True) -> int:
         a = self.program[self.i % len(self.program)]
         self.i += 1
-        return int(a)
+        return a

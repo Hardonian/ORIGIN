@@ -28,6 +28,21 @@
 
 * { box-sizing: border-box; }
 
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 100000;
+  padding: 8px 12px;
+  color: #04121f;
+  background: var(--accent);
+  border-radius: 6px;
+  transform: translateY(-160%);
+  transition: transform 0.15s ease;
+}
+
+.skip-link:focus-visible { transform: translateY(0); }
+
 html, body {
   padding: 0;
   margin: 0;
@@ -55,6 +70,7 @@ a:hover { color: #5eead4; text-shadow: 0 0 8px rgba(0, 240, 255, 0.4); text-deco
 header.top {
   border-bottom: 1px solid var(--border);
   background: rgba(7, 10, 15, 0.85);
+  -webkit-backdrop-filter: blur(16px);
   backdrop-filter: blur(16px);
   padding: 12px 24px;
   display: flex;
@@ -107,6 +123,7 @@ h2 { font-size: 16px; font-weight: 600; margin: 20px 0 10px; color: #e2e8f0; dis
 
 .panel {
   background: var(--panel);
+  -webkit-backdrop-filter: blur(14px);
   backdrop-filter: blur(14px);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -372,6 +389,7 @@ textarea { width: 100%; min-height: 320px; font-size: 13px; line-height: 1.5; }
   top: 10px;
   right: 12px;
   background: rgba(10, 15, 24, 0.82);
+  -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(0, 240, 255, 0.25);
   border-radius: 8px;

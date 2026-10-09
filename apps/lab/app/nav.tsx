@@ -55,6 +55,20 @@ export default function Nav() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!isModalOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsModalOpen(false);
+    };
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isModalOpen]);
+
   const handleSave = () => {
     setAuthToken(inputToken.trim() || null);
     setIsModalOpen(false);
@@ -180,10 +194,13 @@ export default function Nav() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="api-auth-title"
+            aria-describedby="api-auth-description"
           >
             <h2 id="api-auth-title" style={{ marginTop: 0, color: "#fff" }}>API Authentication Token</h2>
             <p className="sub">
-              Enter your <code>ORIGIN_API_KEY</code> if connecting to a remote or secured ORIGIN instance.
+              <span id="api-auth-description">
+                Enter your <code>ORIGIN_API_KEY</code> if connecting to a remote or secured ORIGIN instance.
+              </span>
             </p>
             <input
               type="password"
