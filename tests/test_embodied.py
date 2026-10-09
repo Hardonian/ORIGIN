@@ -167,6 +167,19 @@ def test_episode_termination_and_truncation(tiny):
 
 
 def test_state_serialization_roundtrip(tiny):
+    """A serialized state must round-trip faithfully and replay deterministically.
+
+    Bit-exact continuation of the *live* env is deliberately not asserted. A
+    restored world starts with cold Bullet contact manifolds while the live env
+    keeps warm-started ones, so a contact-rich ground crawler cannot continue
+    identically across a teleport (verified: lifting the same body off the
+    ground makes the comparison exact; the pre-redesign vertical-post body
+    barely contacted the ground, which is why this used to pass at 1e-9, and no
+    pybullet knob disables warm-starting). Two achievable, exact invariants are
+    asserted instead; both still catch every real serialization bug — a dropped
+    field (e.g. base velocity) fails the round-trip check, and any nondeterminism
+    in ``set_state`` fails the replay check.
+    """
     env = EmbodiedCreature(EmbodiedConfig.from_dict(tiny.to_dict()))
     env.reset(seed=2)
     for a in [1, 1, 2, 3]:
@@ -174,12 +187,32 @@ def test_state_serialization_roundtrip(tiny):
     state = env.get_state()
     clone = EmbodiedCreature(EmbodiedConfig.from_dict(tiny.to_dict()))
     clone.set_state(state)
-    o1, r1, *_ = env.step(2)
-    o2, r2, *_ = clone.step(2)
-    assert abs(r1 - r2) < 1e-9, f"replay reward diverged: {r1} vs {r2}"
-    assert np.allclose(o1, o2), "replay observation diverged"
+
+    # (1) Every serialized field survives a set_state -> get_state round-trip.
+    #     Bullet stores pose/velocity as float32, so compare with a float32-scale
+    #     tolerance (a genuinely dropped field is orders of magnitude larger).
+    restored = clone.get_state()
+    assert set(restored) == set(state), "state schema changed across a round-trip"
+    for key, want in state.items():
+        got = restored[key]
+        if isinstance(want, list):
+            assert np.allclose(np.asarray(got, float), np.asarray(want, float), atol=1e-6), (
+                f"{key} did not round-trip: {got} vs {want}"
+            )
+        else:
+            assert got == want, f"{key} did not round-trip: {got!r} vs {want!r}"
+
+    # (2) Restoring the same state in two fresh worlds replays identically (exact):
+    #     the invariant parallel workers rely on.
+    twin = EmbodiedCreature(EmbodiedConfig.from_dict(tiny.to_dict()))
+    twin.set_state(state)
+    o1, r1, *_ = clone.step(2)
+    o2, r2, *_ = twin.step(2)
+    assert r1 == r2, f"restore is not deterministic: {r1} vs {r2}"
+    assert np.array_equal(o1, o2), "restore is not deterministic (observations differ)"
     env.close()
     clone.close()
+    twin.close()
 
 
 def test_state_restore_rebuilds_same_sized_body_when_physics_changes(tiny):
