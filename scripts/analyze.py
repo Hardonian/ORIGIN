@@ -140,7 +140,7 @@ def main() -> int:
     a("## Descriptive (held-out mean reward per method)")
     a("")
     a("| method | n | mean | sd | min | max |")
-    a("|---|---|---|---|---|---|")
+    a("| --- | --- | --- | --- | --- | --- |")
     for algo in ["random", "heuristic", BASELINE, *DIVERSITY, "reinforce"]:
         if algo not in data:
             continue
@@ -153,7 +153,7 @@ def main() -> int:
         a("## Registered primary: paired test, diversity method vs fixed-objective GA")
         a("")
         a("| comparison | mean paired diff | 95% paired bootstrap CI | CI excludes 0? | Wilcoxon p | verdict |")
-        a("|---|---|---|---|---|---|")
+        a("| --- | --- | --- | --- | --- | --- |")
         for method in DIVERSITY:
             if method not in by_seed or BASELINE not in by_seed:
                 continue

@@ -210,7 +210,7 @@ def main() -> int:
     a("## 3. Held-out performance (train/test isolated)")
     a("")
     a("| method | n seeds | held-out reward (mean) | standard error | train fitness | mean interactions |")
-    a("|---|---|---|---|---|---|")
+    a("| --- | --- | --- | --- | --- | --- |")
     for algo, n, mt, sem, mtr, inter in rows:
         a(f"| `{algo}` | {n} | {_txt(mt)} | {('±' + _txt(sem)) if sem is not None else '—'} | {_txt(mtr)} | {inter:,.0f} |")
     a("")
@@ -255,7 +255,7 @@ def main() -> int:
     a("")
     algos = [r[0] for r in rows if r[0] not in ("random", "heuristic")]
     a("| variant | kind | " + " | ".join(f"`{x}`" for x in algos) + " |")
-    a("|---|---|" + "---|" * len(algos))
+    a("| --- | --- |" + " --- |" * len(algos))
     for name in sorted(transfer):
         kind = transfer[name][algos[0]]["kind"] if algos and algos[0] in transfer[name] else ""
         cells = []
