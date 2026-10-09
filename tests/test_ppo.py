@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 from origin.environments.gridworld import GridWorldConfig
 from origin.evaluation.harness import Evaluator

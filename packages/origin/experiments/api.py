@@ -219,7 +219,7 @@ def _morphology_plan(store: Store, exp_id: str, trial_id: str) -> dict:
         "experiment_id": exp_id,
         "trial_id": trial_id,
         "physics_replay": False,
-        "has_recorded_trajectory": bool(has_recorded_trajectory),
+        "has_recorded_trajectory": has_recorded_trajectory,
         "trajectory_url": f"/api/trajectory?experiment={exp_id}&trial={trial_id}" if has_recorded_trajectory else None,
         "body": {
             "morphology": body.morphology,

@@ -14,7 +14,7 @@ from typing import Any
 
 import numpy as np
 
-from origin.environments.gridworld import GridWorld, GridWorldConfig
+from origin.environments.gridworld import GridWorld
 from origin.evaluation.harness import Evaluator
 from origin.evolution.base import OptimizationResult
 from origin.organisms.genome import MLPController
@@ -298,10 +298,11 @@ def ppo(
 
         gae = 0.0
         for t in reversed(range(n_transitions)):
-            if t == n_transitions - 1 or rollout_dones[t]:
-                next_val = 0.0
-            else:
-                next_val = rollout_values[t + 1]
+            next_val = (
+                0.0
+                if t == n_transitions - 1 or rollout_dones[t]
+                else rollout_values[t + 1]
+            )
             delta = rollout_rewards[t] + gamma * next_val - rollout_values[t]
             gae = delta + gamma * lam * (0.0 if rollout_dones[t] else gae)
             advantages[t] = gae

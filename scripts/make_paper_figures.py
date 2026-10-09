@@ -90,7 +90,11 @@ def generate_fig1(store: Store, out_dir: Path) -> Path:
 
     bplot = ax1.boxplot(data, patch_artist=True, tick_labels=labels, widths=0.55,
                         medianprops={"color": "#0f172a", "linewidth": 1.5})
+<<<<<<< HEAD
     for patch, color in zip(bplot["boxes"], colors, strict=False):
+=======
+    for patch, color in zip(bplot["boxes"], colors, strict=True):
+>>>>>>> 742b318 (style: fix markdown linter warnings in paper and redundant bool cast in api.py)
         patch.set_facecolor(color)
         patch.set_alpha(0.75)
 
@@ -277,8 +281,13 @@ def generate_fig4(out_dir: Path) -> Path:
     p_vals = ["p = 0.0381 *", "p = 0.0305 *", "p = 0.4375 (MDE 9.29)"]
 
     y = np.arange(len(campaigns))
+<<<<<<< HEAD
     ax.errorbar(effects, y, xerr=[[e - lo for e, lo in zip(effects, ci_low, strict=False)],
                                   [h - e for e, h in zip(effects, ci_high, strict=False)]],
+=======
+    ax.errorbar(effects, y, xerr=[[effect - lower for effect, lower in zip(effects, ci_low, strict=True)],
+                                  [upper - effect for effect, upper in zip(effects, ci_high, strict=True)]],
+>>>>>>> 742b318 (style: fix markdown linter warnings in paper and redundant bool cast in api.py)
                 fmt="o", color="#047857", ecolor="#059669", elinewidth=2.5, capsize=8,
                 markersize=8, label="Paired Point Estimate & 95% Bootstrap CI")
 
