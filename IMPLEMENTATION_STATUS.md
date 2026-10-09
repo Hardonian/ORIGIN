@@ -240,12 +240,14 @@ ERROR: epyc is not reachable over SSH.   (expected: node offline — see Blocker
   the removed `next lint`). One **dev-only** vulnerability chain remains
   unfixable without downgrading Next: `eslint-config-next` → `fast-glob` →
   `micromatch` → `braces`; npm reports five linked records, and none are in
-  production dependencies. Documented in `SECURITY.md`; not shipped in the
-  app bundle.
-* **REINFORCE is weak** at the pilot budget and previously collapsed to a
-  single action; an entropy bonus was added, which raised it above the collapse
-  but it still trails the random control on the grid task. Reported honestly; it
-  bounds RL claims.
+  production dependencies. `npm run audit:production` now gates this property in
+  frontend CI; the residual dev-only advisory remains documented in `SECURITY.md`
+  and is not shipped in the app bundle.
+* **REINFORCE is a functional, non-confirmatory control.** The hidden-layer
+  backpropagation derivative is now regression-tested, but a post-fix held-out
+  diagnostic still did not establish reliable performance above random on the
+  grid task. It is excluded from powered primary comparisons; a fresh,
+  pre-registered RL-specific study is required before it is promoted.
 * **The scripted heuristic is privileged** (global BFS) and is a reference, not a
   like-for-like competitor. The embodied `scripted_gait` is open-loop and cannot
   adapt at all by construction.
@@ -298,22 +300,28 @@ ERROR: epyc is not reachable over SSH.   (expected: node offline — see Blocker
    remains is exactly one real multi-host campaign once the EPYC node is back
    (Blockers) — the remote path is the same mechanism over SSH.
 3. **Milestone 6 (UI)**: 8 screens and 9 enabled browser scenarios E2E-tested; grid trajectories replay in the
-   world viewer and embodied experiments have a static, persisted body-plan
-   inspector. A 3-D animated morphology replay awaits physics calibration and
+   world viewer with dual-resource color-coded telemetry (Resource A green vs Resource B amber) and consumption tracking;
+   Benchmark screen enhanced with interactive category filter tabs (All, Ecological Shocks, Morphology, Perturbations)
+   and a pre-registered H1.MN Confirmatory Decision Card highlighting the verified +0.418 advantage across shocks;
+   embodied experiments have a static, persisted body-plan inspector. A 3-D animated morphology replay awaits physics calibration and
    trajectory persistence.
 4. **Multi-niche grid campaign**: **verified confirmatory replication completed** (pilot `f8f4c952a5c3`,
    20/20 trials + strict-cap v3 `1e8559d6de45`, 256/256 trials, 0 failures; protocol `research/protocols/multi_niche_replication_v3.md`).
    H1.MN confirmed with statistical significance under strict budget caps: MAP-Elites outperforms GA on adapted transfer
    (+0.418 [+0.057, +0.778], Wilcoxon p=0.0305). Confirmatory reports in `research/reports/H1_multi_niche_v3_analysis.md`
    and `research/reports/ORIGIN_Multi_Niche_v3_Research_Report.md`.
-5. Watch for an upstream fix to the dev-only `braces` advisory (Next lint plugin).
+5. **REINFORCE promotion (optional).** It remains a functional but
+   non-confirmatory control. Do not tune it on existing held-out tasks; if RL is
+   strategically important, pre-register a dedicated actor-critic or
+   hyperparameter study with fresh train/test seeds.
+6. Watch for an upstream fix to the dev-only `braces` advisory (Next lint plugin).
 
 ## Reproduction commands
 
 ```bash
 uv venv --python 3.12 .venv && uv pip install -e '.[dev]' --python .venv/bin/python
 .venv/bin/python -m pytest tests -q
-.venv/bin/origin-run --config configs/pilot.json --store runs --jobs "$(nproc)"
+.venv/bin/origin-run --config configs/multi_niche_transfer_replication_v3.json --store runs --jobs "$(nproc)"
 # distributed worker model (any number of processes, one shared store):
 .venv/bin/origin-worker --config configs/pilot.json --store runs --stale-after 120
 .venv/bin/origin-worker --store runs --status
@@ -334,10 +342,7 @@ uv venv --python 3.12 .venv && uv pip install -e '.[dev]' --python .venv/bin/pyt
 Blockers). It gates milestone 4, a fresh pre-registered H2, and any seed spending
 on the embodied task.
 
-**While that decision is pending, the highest-ROI executable work is Milestone 7
-(local compute distribution)** — the last milestone with an unverified core
-claim. Make distribution real *without* the remote node: a proper worker model
-(heartbeats, stale-worker recovery, idempotent merge by deterministic trial id)
-verified by running a campaign across several real worker processes locally,
-with the remote path as the same mechanism over SSH. That converts "ready but
-unverified" into "verified, and the remote node is just another host".
+**Milestone 7 is already verified locally.** The remaining distribution evidence
+is one real multi-host campaign when `epyc` returns online; it is not a local
+implementation gap. While embodied calibration remains blocked, do not spend
+embodied seeds or relabel the static viewer as a physics replay.

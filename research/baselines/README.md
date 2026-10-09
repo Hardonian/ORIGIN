@@ -25,4 +25,10 @@ the reward signal is sane.
 Pure-NumPy REINFORCE with return normalisation and Adam. It is included to
 demonstrate a genuine gradient-based learner under the same interaction budget.
 It is deliberately not tuned for peak sample efficiency; RL baselines are known
-to be sample-hungry and this is reported honestly rather than hidden.
+to be sample-hungry and this is reported honestly rather than hidden. It is a
+**functional, non-confirmatory control**: it is excluded from the powered
+single-niche and multi-niche primary comparisons. The hidden-layer gradient path
+is regression-tested, but a post-fix held-out diagnostic still did not establish
+reliable performance above the random control. Any attempt to promote it to a
+research comparison requires a fresh pre-registered RL-specific study, rather
+than tuning on the existing held-out task.

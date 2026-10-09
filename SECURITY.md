@@ -46,7 +46,9 @@ This is stated rather than suppressed. The finding is a stack-exhaustion DoS in 
 parser reached only by linting trusted first-party source, on a loopback, single-user
 tool. It is tracked in `IMPLEMENTATION_STATUS.md` and resolves when the Next lint
 plugin bumps `micromatch`/`braces`. **We do not claim the frontend dependency tree
-is advisory-free.**
+is advisory-free.** As checked on 2026-10-09, `npm audit --omit=dev` reports zero
+production advisories; the frontend CI job now enforces that same command through
+`npm run audit:production`.
 
 Earlier PostCSS advisories were resolved with an `overrides` pin to `postcss >= 8.5.29`.
 

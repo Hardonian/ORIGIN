@@ -1,4 +1,4 @@
-"""Reinforcement learning baseline: REINFORCE with a learned baseline.
+"""Reinforcement learning baseline: REINFORCE with normalized returns.
 
 Pure-NumPy implementation of the policy-gradient estimator (Williams, 1992)
 so ORIGIN has a genuine gradient-based learner without a heavy framework
@@ -71,7 +71,11 @@ class _PolicyNet:
             grads_b[i] = d
             if i > 0:
                 dh = self.w[i] @ d
-                d = dh * (1 - np.tanh(acts[i]) ** 2)
+                # ``acts[i]`` is already tanh(z), so d tanh(z)/dz is
+                # 1 - acts[i]². Applying tanh again here attenuates the
+                # gradient incorrectly and made the small policy learner far
+                # weaker than intended.
+                d = dh * (1 - acts[i] ** 2)
         self._adam(grads_w, grads_b)
 
     def _adam(self, grads_w: list[np.ndarray], grads_b: list[np.ndarray], beta1: float = 0.9, beta2: float = 0.999, eps: float = 1e-8) -> None:

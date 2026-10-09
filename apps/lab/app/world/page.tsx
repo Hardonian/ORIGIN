@@ -53,7 +53,7 @@ const COLORS: Record<number, string> = {
   2: "#3fb950",
   3: "#f85149",
   4: "#f5a623",
-  5: "#c084fc",
+  5: "#f5a623",
   9: "#00f0ff",
 };
 
@@ -180,6 +180,17 @@ export default function WorldPage() {
   const grid = useMemo(() => {
     if (!world) return null;
     const replay = world.grid.map((row) => row.slice());
+    const regen = Boolean(world.config.resource_regen);
+    if (!regen) {
+      for (let i = 0; i < step && i < world.trajectory.length; i++) {
+        const cur = world.trajectory[i];
+        const prev = i > 0 ? world.trajectory[i - 1] : null;
+        const collectedDiff = prev ? cur.collected - prev.collected : cur.collected;
+        if (collectedDiff > 0) {
+          replay[cur.agent[0]][cur.agent[1]] = 0;
+        }
+      }
+    }
     if (world.trajectory.length > 0) {
       const pos = step === 0 ? null : world.trajectory[step - 1].agent;
       if (pos) replay[pos[0]][pos[1]] = 9;
@@ -395,11 +406,25 @@ export default function WorldPage() {
             <div>
               <span>Resources Collected</span>
               <strong>
-                {currentStepData
-                  ? currentStepData.collected_b !== undefined
-                    ? `${currentStepData.collected_a ?? currentStepData.collected} A / ${currentStepData.collected_b} B`
-                    : `${currentStepData.collected} items`
-                  : "0 items"}
+                {currentStepData ? (
+                  currentStepData.collected_b !== undefined ? (
+                    <span>
+                      <span style={{ color: "#3fb950" }}>{currentStepData.collected_a ?? currentStepData.collected} A</span>
+                      <span style={{ color: "var(--muted)", margin: "0 6px" }}>/</span>
+                      <span style={{ color: "#f5a623" }}>{currentStepData.collected_b} B</span>
+                    </span>
+                  ) : (
+                    `${currentStepData.collected} items`
+                  )
+                ) : Boolean(world.config.n_resources_b) ? (
+                  <span>
+                    <span style={{ color: "#3fb950" }}>0 A</span>
+                    <span style={{ color: "var(--muted)", margin: "0 6px" }}>/</span>
+                    <span style={{ color: "#f5a623" }}>0 B</span>
+                  </span>
+                ) : (
+                  "0 items"
+                )}
               </strong>
             </div>
             <div>
@@ -488,7 +513,7 @@ export default function WorldPage() {
               resource A (+reward)
             </span>
             <span>
-              <span className="swatch" style={{ background: COLORS[4] }} />
+              <span className="swatch" style={{ background: COLORS[5] }} />
               resource B (+high reward)
             </span>
             <span>
