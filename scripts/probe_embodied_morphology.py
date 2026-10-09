@@ -118,7 +118,11 @@ def write_report(report: dict[str, Any], output: Path | None) -> None:
     if output is None:
         return
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    # Publish only a complete JSON document.  A killed probe must not replace a
+    # previously captured artifact with a truncated file that the API can read.
+    temporary = output.with_name(f".{output.name}.tmp")
+    temporary.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    temporary.replace(output)
     print(f"wrote calibration evidence: {output}")
 
 
