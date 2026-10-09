@@ -211,11 +211,16 @@ def _morphology_plan(store: Store, exp_id: str, trial_id: str) -> dict:
             # specification. The regular replay endpoint will surface it instead.
             organism_morphology = None
 
+    traj_path = Path(store.root) / exp_id / f"{trial_id}.trajectory.json"
+    has_recorded_trajectory = traj_path.exists()
+
     return {
         "viewer_kind": "morphology_plan",
         "experiment_id": exp_id,
         "trial_id": trial_id,
         "physics_replay": False,
+        "has_recorded_trajectory": bool(has_recorded_trajectory),
+        "trajectory_url": f"/api/trajectory?experiment={exp_id}&trial={trial_id}" if has_recorded_trajectory else None,
         "body": {
             "morphology": body.morphology,
             "segments": segments,
@@ -236,6 +241,26 @@ def _morphology_plan(store: Store, exp_id: str, trial_id: str) -> dict:
             "command": "python scripts/probe_embodied_morphology.py",
         },
     }
+
+
+def _embodied_trajectory(store: Store, exp_id: str, trial_id: str) -> dict:
+    """Return a persisted physical trajectory recording from the experiment store.
+
+    Trajectories are written by physics runner/recording probes using the
+    exact simulated coordinates from PyBullet (DIRECT mode).
+    """
+    exp = store.experiment(exp_id)
+    if not exp:
+        raise FileNotFoundError(f"experiment {exp_id} not found")
+    if not any(t["id"] == trial_id for t in store.trials(exp_id)):
+        raise FileNotFoundError(f"trial {trial_id} not found in experiment {exp_id}")
+    traj_path = Path(store.root) / exp_id / f"{trial_id}.trajectory.json"
+    if not traj_path.exists():
+        raise FileNotFoundError(f"recorded trajectory for trial {trial_id} not found")
+    try:
+        return json.loads(traj_path.read_text())
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"malformed trajectory file for trial {trial_id}: {exc}") from exc
 
 
 def _calibration_evidence(store: Store) -> dict:
@@ -534,6 +559,12 @@ def make_handler(
                     if not exp_id or not trial_id:
                         return self._send({"error": "experiment and trial required"}, 400)
                     return self._send(_morphology_plan(store, exp_id, trial_id))
+                if url.path == "/api/trajectory":
+                    exp_id = q.get("experiment", [None])[0] or ""
+                    trial_id = q.get("trial", [None])[0] or ""
+                    if not exp_id or not trial_id:
+                        return self._send({"error": "experiment and trial required"}, 400)
+                    return self._send(_embodied_trajectory(store, exp_id, trial_id))
                 if url.path == "/api/calibration":
                     return self._send(_calibration_evidence(store))
                 return self._send({"error": "unknown endpoint", "path": url.path}, 404)
