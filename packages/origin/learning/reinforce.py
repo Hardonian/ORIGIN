@@ -134,6 +134,14 @@ def reinforce(
     train_seeds = list(evaluator.train_seeds)
 
     while update < max_updates and not evaluator.exhausted:
+        eval_seeds = train_seeds[: min(2, len(train_seeds))]
+        # The policy-gradient batch and its held-in evaluation are both part of
+        # the training interaction currency. Reserve their worst-case horizons
+        # before taking an update, exactly as the evolutionary loops do.
+        max_train_steps = episodes_per_update * int(base_env.max_steps)
+        max_update_steps = max_train_steps + len(eval_seeds) * int(base_env.max_steps)
+        if not evaluator.can_consume(max_update_steps):
+            break
         batch_grads: list[tuple[list[np.ndarray], np.ndarray, int, float]] = []
         ep_rewards: list[float] = []
         for _ in range(episodes_per_update):
@@ -181,7 +189,7 @@ def reinforce(
         ctrl = net.to_controller(hidden)
         org = Organism(morph=morph, controller=ctrl, lineage=Lineage(id="", generation=update, mutations={"algo": "reinforce"}), hidden=hidden)
         org.refresh_id()
-        fit, desc, _ = evaluator.evaluate_organism(org, seeds=train_seeds[: min(2, len(train_seeds))])
+        fit, desc, _ = evaluator.evaluate_organism(org, seeds=eval_seeds)
         history.append({"update": update, "mean_episode_reward": float(np.mean(ep_rewards)) if ep_rewards else 0.0, "eval_fitness": fit, "interactions": evaluator.interactions})
         if fit > best_fit:
             best_fit = fit

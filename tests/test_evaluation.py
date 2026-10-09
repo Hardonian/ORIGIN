@@ -6,6 +6,7 @@ import numpy as np
 
 from origin.environments.gridworld import GridWorldConfig
 from origin.evaluation.harness import (
+    BudgetExhausted,
     Evaluator,
     evaluate_policy,
     morphology_variants,
@@ -38,13 +39,14 @@ def test_evaluator_counts_interactions():
     assert ev.interactions > 0
 
 
-def test_budget_exhaustion():
+def test_evaluator_fails_closed_when_a_full_episode_does_not_fit():
     base = GridWorldConfig(height=6, width=6, max_steps=20, n_resources=1, n_hazards=0, seed=0)
     ev = Evaluator(base_env=base, train_seeds=[1], budget=15)
     rng = np.random.default_rng(0)
     org = Organism.random(Morphology(), base, rng)
-    ev.evaluate_organism(org)
-    assert ev.exhausted
+    assert not ev.can_evaluate()
+    with np.testing.assert_raises(BudgetExhausted):
+        ev.evaluate_organism(org)
 
 
 def test_heuristic_beats_random_on_task():

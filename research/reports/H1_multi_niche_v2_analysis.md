@@ -1,4 +1,15 @@
-# H1.MN — Pre-registered multi-niche transfer analysis
+# H1.MN v2 — Invalidated over-budget execution audit
+
+> ## Retraction — 2026-10-09
+>
+> This execution does **not** provide confirmatory evidence for H1.MN. The former
+> optimizer loop allowed a final full generation or MAP-Elites batch after the
+> nominal 25,000-step cap. Across v2, fixed-objective GA consumed 34,452–34,560
+> training steps and MAP-Elites consumed 28,603–28,800. The registered equal-cap
+> condition was therefore violated. The numerical audit is retained below for
+> debugging only; its verdict must not be cited. The evaluator now reserves full
+> batches before evaluation, and `multi_niche_replication_v3.md` registers fresh
+> method seeds for a strict-cap rerun.
 
 Experiment `5058bcacd3de` · protocol `multi_niche_transfer_v2_H1MN` · 64 paired method seeds · budget 25,000 interactions/method/seed.
 
@@ -19,7 +30,7 @@ All 64 registered seeds were present and finite for both methods and all five sh
 
 | comparison | mean paired diff | 95% paired bootstrap CI | CI excludes 0? | Wilcoxon p | verdict |
 | --- | --- | --- | --- | --- | --- |
-| `map_elites` − `fixed_objective_ga` | +0.660 | [+0.298, +1.036] | yes | 0.0019 (W=514.0) | **supported (direction)** |
+| `map_elites` − `fixed_objective_ga` | +0.660 | [+0.298, +1.036] | yes | 0.0019 (W=514.0) | **invalid — over budget** |
 
 Paired bootstrap: 10,000 resamples, fixed RNG seed `20261014`. The confidence interval is the registered decision rule; Wilcoxon is reported as a concordance check.
 
@@ -37,4 +48,4 @@ Paired bootstrap: 10,000 resamples, fixed RNG seed `20261014`. The confidence in
 
 At n=64, the normal-approximation minimum detectable paired effect at 80% power and α=0.05 (two-sided) is 0.528; observed |mean difference| is 0.660.
 
-A confidence interval spanning zero is reported as inconclusive, not as evidence for equivalence.
+This audit is invalid because its training-cap condition failed; no inferential conclusion follows.

@@ -63,6 +63,7 @@ files = ["packages/origin"]
 [tool.pytest.ini_options]
 minversion = "8.0"
 testpaths = ["tests"]
+pythonpath = ["."]
 addopts = "-q"
 filterwarnings = ["ignore::DeprecationWarning"]
 markers = ["e2e: end-to-end browser tests (require ORIGIN_E2E=1 and running servers)", "embodied: articulated-physics tests (PyBullet DIRECT)", "integration: multi-component tests that run a real campaign end-to-end"]

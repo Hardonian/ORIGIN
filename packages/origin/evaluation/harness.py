@@ -19,6 +19,10 @@ class Policy(Protocol):
     def act(self, obs: np.ndarray, env: GridWorld | None = ..., deterministic: bool = ...) -> int: ...
 
 
+class BudgetExhausted(RuntimeError):
+    """A full, comparable organism evaluation no longer fits in the budget."""
+
+
 @dataclass
 class EpisodeResult:
     reward: float
@@ -104,8 +108,33 @@ class Evaluator:
     def exhausted(self) -> bool:
         return self.budget > 0 and self.interactions >= self.budget
 
+    def can_consume(self, steps: int) -> bool:
+        """Whether an algorithm may reserve ``steps`` more environment steps."""
+        if steps < 0:
+            raise ValueError("steps must be >= 0")
+        return self.budget <= 0 or self.interactions + steps <= self.budget
+
+    def can_evaluate(self, seeds: list[int] | None = None, *, count: int = 1) -> bool:
+        """Whether ``count`` complete organism evaluations fit without overshoot.
+
+        The reservation uses the environment's configured episode horizon, not
+        observed episode length.  This conservative bound prevents a population
+        algorithm from spending a whole extra generation after its nominal cap.
+        """
+        if count < 1:
+            raise ValueError("count must be >= 1")
+        episode_seeds = self.train_seeds if seeds is None else seeds
+        if not episode_seeds:
+            raise ValueError("seeds must be non-empty")
+        return self.can_consume(count * len(episode_seeds) * int(self.base_env.max_steps))
+
     def evaluate_organism(self, org: Organism, seeds: list[int] | None = None) -> tuple[float, np.ndarray, list[EpisodeResult]]:
         seeds = seeds if seeds is not None else self.train_seeds
+        if not self.can_evaluate(seeds):
+            raise BudgetExhausted(
+                f"full evaluation of {len(seeds)} episode(s) does not fit remaining budget "
+                f"({self.budget - self.interactions} steps)"
+            )
         rewards: list[float] = []
         descs: list[np.ndarray] = []
         results: list[EpisodeResult] = []

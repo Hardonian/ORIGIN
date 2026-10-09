@@ -24,7 +24,7 @@ def test_ga_improves_and_respects_budget():
     res = fixed_objective_ga(ev, base, seed=1, pop_size=16, max_generations=200)
     assert res.history, "no generations recorded"
     assert res.best_fitness >= res.history[0]["best"] - 1e-9
-    assert res.interactions <= res.budget + 5000  # one generation of overshoot allowed
+    assert res.interactions <= res.budget
     assert res.best_organism is not None
     assert res.best_organism.controller.sizes[0] == 7
 
@@ -40,6 +40,7 @@ def test_ga_deterministic_given_seed():
 def test_novelty_archive_grows_and_differs_from_ga():
     base = _base()
     nov = novelty_search(_ev(), base, seed=1, pop_size=16, max_generations=200)
+    assert nov.interactions <= nov.budget
     assert nov.extra["archive_size"] > 0
     ga = fixed_objective_ga(_ev(), base, seed=1, pop_size=16, max_generations=200)
     # novelty optimizes a different objective; its archive must be populated
@@ -51,6 +52,7 @@ def test_novelty_archive_grows_and_differs_from_ga():
 def test_map_elites_coverage_and_archive():
     base = _base()
     res = map_elites(_ev(), base, seed=1, batch=8, grid_shape=(8, 8), max_iterations=200)
+    assert res.interactions <= res.budget
     assert res.extra["archive_size"] > 0
     assert 0.0 < res.extra["coverage"] <= 1.0
     assert res.archive is not None and len(res.archive) == res.extra["archive_size"]
@@ -60,6 +62,7 @@ def test_reinforce_learns_and_returns_organism():
     base = _base()
     ev = _ev(budget=8000)
     res = reinforce(ev, base, seed=1, hidden=(12,), episodes_per_update=2, max_updates=100)
+    assert res.interactions <= res.budget
     assert res.interactions > 0
     assert res.best_organism is not None
     assert res.best_organism.controller.sizes == [7, 12, base.n_actions]

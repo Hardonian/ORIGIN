@@ -126,12 +126,32 @@ class EmbodiedEvaluator:
     def exhausted(self) -> bool:
         return self.budget > 0 and self.interactions >= self.budget
 
+    def can_consume(self, steps: int) -> bool:
+        """Whether an algorithm may reserve ``steps`` more control steps."""
+        if steps < 0:
+            raise ValueError("steps must be >= 0")
+        return self.budget <= 0 or self.interactions + steps <= self.budget
+
+    def can_evaluate(self, seeds: list[int] | None = None, *, count: int = 1) -> bool:
+        """Whether ``count`` complete physics evaluations fit without overshoot."""
+        if count < 1:
+            raise ValueError("count must be >= 1")
+        episode_seeds = self.train_seeds if seeds is None else seeds
+        if not episode_seeds:
+            raise ValueError("seeds must be non-empty")
+        return self.can_consume(count * len(episode_seeds) * int(self.base_env.max_steps))
+
     def evaluate_organism(
         self,
         org: Organism,
         seeds: list[int] | None = None,
     ) -> tuple[float, np.ndarray, list[EmbodiedEpisode]]:
         seeds = seeds if seeds is not None else self.train_seeds
+        if not self.can_evaluate(seeds):
+            raise RuntimeError(
+                f"full evaluation of {len(seeds)} episode(s) does not fit remaining budget "
+                f"({self.budget - self.interactions} steps)"
+            )
         rewards: list[float] = []
         descs: list[np.ndarray] = []
         episodes: list[EmbodiedEpisode] = []

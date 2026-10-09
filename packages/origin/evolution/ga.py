@@ -67,6 +67,11 @@ def fixed_objective_ga(
     gen = 0
 
     while gen < max_generations and not evaluator.exhausted:
+        # A generation is one comparison unit.  Reserving it as a whole keeps
+        # the configured cap strict instead of letting the final generation
+        # overshoot by up to ``pop_size * seeds * max_steps``.
+        if not evaluator.can_evaluate(count=len(pop)):
+            break
         fitness = np.zeros(len(pop))
         descs: list[np.ndarray] = []
         for i, org in enumerate(pop):

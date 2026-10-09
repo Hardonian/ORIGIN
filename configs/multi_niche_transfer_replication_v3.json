@@ -1,0 +1,37 @@
+{
+  "name": "multi_niche_transfer_replication_v3_strict_cap",
+  "protocol": "multi_niche_transfer_v3_strict_cap_H1MN",
+  "description": "Fresh, strictly budget-capped replication of H1.MN (research/protocols/multi_niche_replication_v3.md). The confirmatory endpoint is the per-seed mean held-out adapted transfer reward across the five registered ecological shocks. Every full optimizer batch is reserved before evaluation, so no learned trial may exceed 25,000 training environment steps.",
+  "env": {
+    "height": 10,
+    "width": 10,
+    "max_steps": 120,
+    "terrain": "random",
+    "obstacle_density": 0.04,
+    "n_resources": 4,
+    "resource_reward": 1.0,
+    "resource_energy": 20.0,
+    "n_resources_b": 4,
+    "resource_b_reward": 2.5,
+    "resource_b_energy": 15.0,
+    "n_hazards": 2,
+    "hazard_penalty": 0.5,
+    "hazard_energy_drain": 10.0,
+    "obs_mode": "multi_niche",
+    "niche_distribution": "zones",
+    "energy_start": 100.0,
+    "energy_capacity": 100.0,
+    "energy_step": 0.1,
+    "seed": 0
+  },
+  "train_seeds": [11, 22, 33, 44],
+  "test_seeds": [101, 202, 303, 404],
+  "budget": 25000,
+  "seeds": [70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133],
+  "include_baselines": ["random", "heuristic"],
+  "transfer": {"adapt": true, "budget": 5000},
+  "algorithms": {
+    "fixed_objective_ga": {"pop_size": 24, "mutation_rate": 0.3, "mutation_scale": 0.5, "morph_strength": 0.3},
+    "map_elites": {"batch": 12, "grid_shape": [8, 8], "mutation_rate": 0.3, "mutation_scale": 0.5, "morph_strength": 0.3}
+  }
+}

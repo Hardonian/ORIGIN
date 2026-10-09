@@ -64,6 +64,9 @@ def transfer_values_by_seed(
     expected_seeds = {int(seed) for seed in cfg.get("seeds", [])}
     if not expected_seeds:
         raise ValueError("experiment config has no registered method seeds")
+    budget = cfg.get("budget")
+    if budget is not None and int(budget) < 1:
+        raise ValueError("experiment config has an invalid training budget")
 
     out: dict[str, dict[int, dict[str, float]]] = {method: {} for method in methods}
     for trial in store.trials(experiment_id):
@@ -73,6 +76,11 @@ def transfer_values_by_seed(
         seed = int(trial["seed"])
         if trial["status"] != "done":
             raise ValueError(f"{method} seed {seed} is {trial['status']}, not done")
+        if budget is not None and int(trial.get("interactions") or 0) > int(budget):
+            raise ValueError(
+                f"{method} seed {seed} exceeded the registered training cap "
+                f"({trial['interactions']} > {budget})"
+            )
         raw = trial.get("transfer_json")
         if not raw:
             raise ValueError(f"{method} seed {seed} has no transfer record")

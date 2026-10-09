@@ -39,6 +39,8 @@ def novelty_search(
     gen = 0
 
     while gen < max_generations and not evaluator.exhausted:
+        if not evaluator.can_evaluate(count=len(pop)):
+            break
         nov = np.zeros(len(pop))
         task = np.zeros(len(pop))
         raw_nov = np.zeros(len(pop))

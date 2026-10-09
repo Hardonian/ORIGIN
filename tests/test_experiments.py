@@ -43,12 +43,17 @@ def test_validate_config_ok():
 
 
 def test_registered_multi_niche_transfer_config_validates():
-    path = Path(__file__).parents[1] / "configs" / "multi_niche_transfer.json"
-    cfg = json.loads(path.read_text(encoding="utf-8"))
-    validate_config(cfg)
-    assert cfg["env"]["obs_mode"] == "multi_niche"
-    assert cfg["env"]["n_resources_b"] > 0
-    assert set(cfg["train_seeds"]).isdisjoint(cfg["test_seeds"])
+    root = Path(__file__).parents[1]
+    for name in (
+        "multi_niche_transfer.json",
+        "multi_niche_transfer_replication_v2.json",
+        "multi_niche_transfer_replication_v3.json",
+    ):
+        cfg = json.loads((root / "configs" / name).read_text(encoding="utf-8"))
+        validate_config(cfg)
+        assert cfg["env"]["obs_mode"] == "multi_niche"
+        assert cfg["env"]["n_resources_b"] > 0
+        assert set(cfg["train_seeds"]).isdisjoint(cfg["test_seeds"])
 
 
 def test_validate_config_rejects_seed_leakage():

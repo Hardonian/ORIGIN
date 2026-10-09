@@ -103,6 +103,10 @@ def map_elites(
 
     it = 0
     while it < max_iterations and not evaluator.exhausted:
+        # MAP-Elites adds candidates in batches; reserve a complete batch so
+        # its last iteration cannot silently exceed the shared step cap.
+        if not evaluator.can_evaluate(count=batch):
+            break
         new_orgs: list[Organism] = []
         for _ in range(batch):
             if archive.cells and rng.random() < 0.8:

@@ -1,5 +1,14 @@
 # Protocol — H1.MN v2: paired, powered multi-niche transfer replication
 
+> ## Execution correction — 2026-10-09
+>
+> This document is retained as the original v2 registration. Its execution is
+> invalid for confirmatory use: the then-current optimizers could evaluate a
+> final complete generation/batch after crossing the 25,000-step cap. See
+> `research/reports/H1_multi_niche_v2_analysis.md`. The fresh strict-cap rerun
+> is registered at `research/protocols/multi_niche_replication_v3.md`; v2 data
+> are not used to decide H1.MN.
+
 **Registered before execution.** This protocol supersedes neither the pilot nor its data. It fixes the transfer endpoint that the pilot described but did not uniquely aggregate, before any v2 trial is started.
 
 ## Question and scope

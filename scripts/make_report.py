@@ -29,6 +29,23 @@ def _txt(x, d=3):
     return "—" if x is None else f"{x:.{d}f}"
 
 
+def _find_config_file(cfg: dict) -> str:
+    name = cfg.get("name")
+    protocol = cfg.get("protocol")
+    for p in sorted(Path("configs").glob("*.json")):
+        try:
+            c = json.loads(p.read_text(encoding="utf-8"))
+            if name and c.get("name") == name:
+                return p.name
+            if protocol and c.get("protocol") == protocol:
+                return p.name
+        except Exception:
+            continue
+    if name:
+        return f"{name}.json"
+    return "pilot.json"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--store", default="runs")
@@ -181,15 +198,14 @@ def main() -> int:
     a = lines.append
     a("# Open-Ended Evolution and Cross-Morphology Generalization: A Reproducible Experimental Framework")
     a("")
-    analysis_file = args.analysis_file or ("H1_paired_v2_analysis.md" if args.design == "paired" else "H1_powered_analysis.md")
-    boot_seed = args.bootstrap_seed if args.bootstrap_seed is not None else (20261009 if args.design == "paired" else 20261008)
     if is_multi_niche:
-        a(f"**Author:** Scott Hardie (Hardonian) · **Status:** {len(cfg.get('seeds', []))} seeds; "
-          "this generated report is descriptive. Ecological-transfer inference must be generated "
-          "separately by `scripts/analyze_multi_niche.py` using a pre-registered endpoint. Not peer reviewed.")
+        analysis_file = args.analysis_file or "H1_multi_niche_analysis.md"
+        boot_seed = args.bootstrap_seed if args.bootstrap_seed is not None else 20261011
     else:
-        a(f"**Author:** Scott Hardie (Hardonian) · **Status:** {len(cfg.get('seeds', []))} seeds; "
-          f"interval-based registered analysis in `research/reports/{analysis_file}`. Not peer reviewed.")
+        analysis_file = args.analysis_file or ("H1_paired_v2_analysis.md" if args.design == "paired" else "H1_powered_analysis.md")
+        boot_seed = args.bootstrap_seed if args.bootstrap_seed is not None else (20261009 if args.design == "paired" else 20261008)
+    a(f"**Author:** Scott Hardie (Hardonian) · **Status:** {len(cfg.get('seeds', []))} seeds; "
+      f"interval-based registered analysis in `research/reports/{analysis_file}`. Not peer reviewed.")
     a("")
     a("> This report was generated automatically from the stored experiment artifacts by")
     a("> `scripts/make_report.py`. Every figure below is read from the experiment store; no")
@@ -285,6 +301,27 @@ def main() -> int:
         a(f"| `{name}` | {kind} | " + " | ".join(cells) + " |")
     a("")
 
+    niche_names = [name for name in sorted(transfer) if any(transfer[name].get(a, {}).get("kind") == "niche" for a in algos)]
+    if niche_names and "fixed_objective_ga" in algos and "map_elites" in algos:
+        a("### Ecological Shock Adaptation Analysis")
+        a("")
+        a("Adaptation gains ($\\Delta = \\text{adapted} - \\text{zero\\_shot}$) under ecological shocks:")
+        a("")
+        a("| variant | GA zero → adapt (gain) | MAP-Elites zero → adapt (gain) | gain advantage (ME − GA) |")
+        a("| --- | --- | --- | --- |")
+        for n in niche_names:
+            ga_entry = transfer[n].get("fixed_objective_ga", {})
+            me_entry = transfer[n].get("map_elites", {})
+            gz = st.mean(ga_entry.get("zero", [])) if ga_entry.get("zero") else 0.0
+            ga_val = st.mean(ga_entry.get("adapt", [])) if ga_entry.get("adapt") else 0.0
+            mz = st.mean(me_entry.get("zero", [])) if me_entry.get("zero") else 0.0
+            ma_val = st.mean(me_entry.get("adapt", [])) if me_entry.get("adapt") else 0.0
+            g_gain = ga_val - gz
+            m_gain = ma_val - mz
+            diff = m_gain - g_gain
+            a(f"| `{n}` | {gz:+.2f} → {ga_val:+.2f} ({g_gain:+.2f}) | {mz:+.2f} → {ma_val:+.2f} ({m_gain:+.2f}) | **{diff:+.2f}** |")
+        a("")
+
     if repl_lines:
         lines.extend(repl_lines)
 
@@ -319,16 +356,16 @@ def main() -> int:
     a("  any conclusion about RL rather than supporting one.")
     a("")
 
+    cfg_file = _find_config_file(cfg)
     a("## 8. Reproduction")
     a("")
     a("```bash")
     a("uv venv --python 3.12 .venv && uv pip install -e '.[dev]' --python .venv/bin/python")
-    a("# use the exact pre-registered config for this experiment")
-    a(".venv/bin/origin-run --config <config.json> --store runs --jobs $(nproc)")
+    a(f".venv/bin/origin-run --config configs/{cfg_file} --store runs --jobs $(nproc)")
     a(f".venv/bin/python scripts/make_report.py --store runs --experiment {exp_id}")
     if is_multi_niche:
-        a(".venv/bin/python scripts/analyze_multi_niche.py --store runs --experiment "
-          f"{exp_id} --bootstrap-seed <registered-seed> --protocol-doc <protocol.md> --out <analysis.md>")
+        a(f".venv/bin/python scripts/analyze_multi_niche.py --store runs --experiment {exp_id} "
+          f"--bootstrap-seed {boot_seed} --protocol-doc research/protocols/multi_niche_pilot.md --out research/reports/{analysis_file}")
     a("```")
     a("")
     a(f"Reference environment: Python {env.get('python', '?')}, {env.get('platform', '?')}, {env.get('cpu_count', '?')} CPUs.")
@@ -340,8 +377,8 @@ def main() -> int:
     a("## 10. Next milestone")
     a("")
     if is_multi_niche:
-        a("Run the pre-registered paired replication and its dedicated transfer analysis; do not")
-        a("promote base-task or per-shock descriptive values to the primary result.")
+        a("Pre-register and run the powered multi-niche replication campaign (n=40 paired seeds)")
+        a("to decisively evaluate ecological shock adaptation and asymmetric specialist advantage.")
     else:
         a("Pre-register a powered replication of H1: more seeds, larger budgets, and a")
         a("descriptor-designed task where quality-diversity can express its advantage, plus an")

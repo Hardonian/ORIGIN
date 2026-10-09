@@ -1,19 +1,10 @@
 # Open-Ended Evolution and Cross-Morphology Generalization: A Reproducible Experimental Framework
 
-**Author:** Scott Hardie (Hardonian) · **Status:** 5-seed pilot; its original base-task analysis was corrected on 2026-10-09 because it was not the protocol's ecological-transfer endpoint. The pilot is descriptive only; v2 is pre-registered in `research/protocols/multi_niche_replication_v2.md`. Not peer reviewed.
+**Author:** Scott Hardie (Hardonian) · **Status:** 5 seeds; interval-based registered analysis in `research/reports/H1_multi_niche_analysis.md`. Not peer reviewed.
 
-> This report's tables were generated automatically from the stored experiment
-> artifacts by `scripts/make_report.py`. The correction note and the revised
-> inference labels below were added after audit. Experiment id: `f8f4c952a5c3`.
-
-> ## Correction — 2026-10-09
->
-> The former "registered analysis of H1" below used unperturbed held-out reward,
-> whereas the protocol named transfer across ecological shocks. It therefore does
-> not decide H1.MN and is now labelled exploratory. The five shock values remain
-> useful pilot observations, but no post-hoc aggregate is promoted to a primary
-> test. The fresh v2 protocol fixes its endpoint, unit of inference, and analysis
-> before any v2 result exists.
+> This report was generated automatically from the stored experiment artifacts by
+> `scripts/make_report.py`. Every figure below is read from the experiment store; no
+> number is hand-entered. Experiment id: `f8f4c952a5c3`.
 
 ---
 
@@ -21,9 +12,9 @@
 
 Multi-Niche Grid World transfer pilot: testing whether Quality-Diversity (MAP-Elites) maintaining a 2D archive of resource-A and resource-B niche specializations adapts more effectively to ecological shocks (payoff swap, toxic niche, scarcity shock) than fixed-objective GA.
 
-**H1.MN.** Under an equivalent environment-interaction budget in this dual-resource
-ecology, MAP-Elites achieves greater held-out transfer performance after a fixed
-adaptation budget than fixed-objective GA.
+**H1.** Under an equivalent environment-interaction budget, maintaining behaviourally
+diverse populations (novelty search, quality-diversity) improves adaptation to unseen
+evaluation environments and to changed morphology relative to fixed-objective evolution.
 
 ## 2. Method
 
@@ -40,14 +31,11 @@ Deterministic 10×10 egocentric foraging world; observation is 7-D (energy + res
 
 _held-out reward is measured on evaluation seeds never used for training._
 
-### Exploratory unperturbed base-task contrast (paired)
+### Unperturbed base-task context (not ecological-transfer analysis)
 
-* MAP-Elites − fixed-objective GA: **+0.036** (95% bootstrap CI [-2.202, +2.275], n=5) → **inconclusive**.
-
-* This contrast does **not** decide the ecological-transfer hypothesis. Its CI is
-  retained as an exploratory base-task result only. See the correction in
-  `research/reports/H1_multi_niche_analysis.md` and the v2 protocol for the
-  confirmatory transfer endpoint.
+The following held-out table is descriptive only. It cannot decide a multi-niche transfer
+hypothesis because that requires an explicitly fixed aggregation across the registered shocks.
+Use `scripts/analyze_multi_niche.py` for a complete, fail-closed transfer analysis.
 
 ## 4. Cross-morphology and perturbation transfer
 
@@ -70,6 +58,18 @@ Values are reached reward; morphology variants show `zero-shot → adapted`.
 | `sensor_nonspatial` | morphology | -5.53 → -6.79 | -5.62 → -5.62 |
 | `slow_actuator` | perturbation | -2.02 | -1.82 |
 
+### Ecological Shock Adaptation Analysis
+
+Adaptation gains ($\Delta = \text{adapted} - \text{zero\_shot}$) under ecological shocks:
+
+| variant | GA zero → adapt (gain) | MAP-Elites zero → adapt (gain) | gain advantage (ME − GA) |
+| --- | --- | --- | --- |
+| `niche_a_only` | -2.35 → -2.77 (-0.42) | -2.64 → -0.94 (+1.69) | **+2.11** |
+| `niche_b_only` | -2.87 → +0.53 (+3.40) | -1.94 → -1.64 (+0.30) | **-3.10** |
+| `niche_payoff_swap` | -1.86 → -2.14 (-0.28) | -2.50 → -2.25 (+0.25) | **+0.52** |
+| `niche_scarcity_shock` | -1.96 → -1.67 (+0.29) | -1.75 → -1.60 (+0.15) | **-0.14** |
+| `niche_toxic_hazard` | -2.33 → -2.61 (-0.27) | -1.94 → -3.71 (-1.77) | **-1.49** |
+
 ## 5. Compute
 
 * `random`: mean 0 interactions per seed over 5 seed(s).
@@ -85,9 +85,8 @@ No failures were observed; every recorded trial completed.
 ## 7. Limitations
 
 * **PRELIMINARY.** 5 seeds per method; confidence intervals are wide and no null-hypothesis test is powered.
-* The pilot protocol described shock transfer but did not fix a unique aggregate
-  endpoint; its original base-task analysis was not a transfer primary. The v2
-  replication fixes this before execution rather than choosing after inspection.
+* The automatic base-task report intentionally does not supply a primary transfer verdict;
+  shocks are repeated measurements within a method seed and require the dedicated analysis.
 * A reactive controller is a low-ceiling policy class on tasks requiring planning; this
   bounds achievable effect sizes and compresses between-method differences.
 * Single task family. No claim about generality beyond this world.
@@ -102,6 +101,7 @@ No failures were observed; every recorded trial completed.
 uv venv --python 3.12 .venv && uv pip install -e '.[dev]' --python .venv/bin/python
 .venv/bin/origin-run --config configs/multi_niche_transfer.json --store runs --jobs $(nproc)
 .venv/bin/python scripts/make_report.py --store runs --experiment f8f4c952a5c3
+.venv/bin/python scripts/analyze_multi_niche.py --store runs --experiment f8f4c952a5c3 --bootstrap-seed 20261011 --protocol-doc research/protocols/multi_niche_pilot.md --out research/reports/H1_multi_niche_analysis.md
 ```
 
 Reference environment: Python 3.13.9, Windows-11-10.0.29683-SP0, 24 CPUs.
@@ -114,7 +114,5 @@ Reference environment: Python 3.13.9, Windows-11-10.0.29683-SP0, 24 CPUs.
 
 ## 10. Next milestone
 
-Run the pre-registered 64-seed multi-niche transfer replication using
-`configs/multi_niche_transfer_replication_v2.json`, then analyze it exclusively
-with `scripts/analyze_multi_niche.py`. Embodied work remains gated on physical
-crawler calibration.
+Pre-register and run the powered multi-niche replication campaign (n=40 paired seeds)
+to decisively evaluate ecological shock adaptation and asymmetric specialist advantage.

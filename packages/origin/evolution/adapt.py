@@ -34,6 +34,18 @@ def fine_tune(
     articulated-physics bodies). The default builds the grid evaluator, preserving
     the original behaviour exactly.
     """
+    # Adaptation must not exceed its own fixed budget.  A small test or pilot
+    # budget may not fit the default 16-member generation, so reduce that
+    # initial generation to the largest whole evaluation batch that does fit.
+    # (A budget smaller than one complete evaluation cannot yield a valid score.)
+    max_steps = int(target_env.max_steps)
+    max_population = budget // (len(seeds) * max_steps)
+    if max_population < 1:
+        raise ValueError(
+            "adaptation budget is smaller than one complete evaluation "
+            f"({len(seeds)} seeds × {max_steps} max steps)"
+        )
+    pop_size = min(pop_size, max_population)
     rng = np.random.default_rng(seed)
     init = [organism]
     init.extend(organism.mutate(rng, target_env, weight_rate=mutation_rate, weight_scale=mutation_scale) for _ in range(pop_size - 1))
