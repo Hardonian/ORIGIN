@@ -76,7 +76,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     return data as T;
   } catch (error) {
     if (error instanceof ApiError) throw error;
-    const timedOut = error instanceof DOMException && error.name === "AbortError";
+    const timedOut = error instanceof Error && error.name === "AbortError";
     const message = timedOut
       ? `API ${path} timed out after ${API_TIMEOUT_MS / 1000}s`
       : `API ${path} is unreachable`;

@@ -265,3 +265,22 @@ def test_workers_dashboard_renders_cluster_status(page):
     body = _wait_for_text(page, "System Capabilities")
     assert "Cluster & Compute Workers" in body
     assert "Reap Stale Workers" in body
+
+
+def test_app_shell_keyboard_accessibility(page):
+    """Shared navigation exposes a skip target and a keyboard-dismissable dialog."""
+    _goto(page, "/")
+
+    skip = page.locator("a.skip-link")
+    assert skip.count() == 1
+    assert page.locator("main#main-content").count() == 1
+    assert skip.get_attribute("href") == "#main-content"
+
+    auth_trigger = page.locator("button[aria-haspopup='dialog']")
+    assert auth_trigger.count() == 1
+    auth_trigger.click()
+    dialog = page.locator("[role='dialog']")
+    assert dialog.is_visible()
+    assert dialog.get_attribute("aria-labelledby") == "api-auth-title"
+    page.keyboard.press("Escape")
+    assert not dialog.is_visible()

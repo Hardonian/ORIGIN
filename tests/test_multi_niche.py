@@ -7,7 +7,6 @@ import pytest
 
 from origin.environments.gridworld import (
     EMPTY,
-    OBSTACLE,
     RESOURCE,
     RESOURCE_B,
     GridWorld,
@@ -21,7 +20,7 @@ from origin.evaluation.harness import (
 )
 from origin.evolution import fixed_objective_ga, map_elites
 from origin.experiments.runner import run_trial
-from origin.organisms.policies import HeuristicPolicy, RandomPolicy
+from origin.organisms.policies import HeuristicPolicy
 
 
 def test_multi_niche_config_validation():
@@ -263,7 +262,6 @@ def test_multi_niche_heuristic_policy():
         n_hazards=1,
         seed=12,
     )
-    env = GridWorld(cfg)
     pol = HeuristicPolicy(cfg.n_actions, seed=12)
     res = evaluate_policy(cfg, pol, seeds=[12, 13])
     assert res["mean_collected"] > 0

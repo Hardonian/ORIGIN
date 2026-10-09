@@ -136,7 +136,7 @@ def environment_manifest() -> dict[str, Any]:
         "python": sys.version.split()[0],
         "platform": platform.platform(),
         "machine": platform.machine(),
-        "cpu_count": int(_cpu_count()),
+        "cpu_count": _cpu_count(),
         "packages": versions,
         "git_sha": _git(["rev-parse", "HEAD"]),
         "git_dirty": bool(_git(["status", "--porcelain"])),

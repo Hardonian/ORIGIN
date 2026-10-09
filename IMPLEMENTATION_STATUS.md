@@ -7,14 +7,14 @@
 ## Milestones
 
 | # | Milestone | State | Evidence |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | 0 | Research & environment baseline | **done** | `docs/ARCHITECTURE.md`, `research/RESEARCH_PLAN.md`, `research/PRIOR_ART.md`, `docs/REPRODUCIBILITY.md`, `docs/EXPERIMENT_PROTOCOL.md` |
 | 1 | Artificial environment engine | **done** | `origin.environments.GridWorld`; determinism/replay/serialization tests pass |
 | 2 | Evolving organisms | **done** | `origin.organisms` (morphology/genome/lineage); invariant + serialization tests pass |
 | 3 | Learning & evolution baselines | **done** | GA, novelty search, MAP-Elites, REINFORCE all run under a shared interaction budget |
 | 4 | Embodied intelligence / morphology transfer | **INVALIDATED — redesigned, awaiting physical acceptance** | The instrument was physically broken (links clumped at one point, capsules vertical) and three measurement defects made every number untrustworthy. All M4 results **retracted** — see the correction at the top of `research/reports/ORIGIN_M4_Embodied_Transfer_Report.md`. The new yaw-jointed, anisotropic-friction crawler has regression coverage, a fail-closed calibration probe, Linux CI coverage, and a containerized evidence path, but it has **not yet passed that probe on a supported PyBullet host**; no embodied claim is restored. |
 | 5 | Experiment orchestration | **done** | `origin.experiments.runner` + `store`; manifests, resume, cancellation, bounded concurrency, CSV/Parquet |
-| 6 | Research lab UI & 3D visualization | **done — cutting edge & gamified** | 8 screens on **Next 16.4.0 / React 19.3.0** with bioluminescent glassmorphism design system; pure Web Audio synthesized SFX (blip, click, step, level-up chime, laser, error); Cybernetic Holodeck HUD with kinematics telemetry and joint load stress heatmap; creature theme picker (Cyberpunk Neon, Bioluminescent Abyssal, Obsidian Stealth, Solar Flare); interactive Grid World trajectory player with speed multipliers (0.5x–5x) and audio step ticks; Gamified Evolutionary Tier Badges (Apex Controller 👑, Adaptive Specialist ⚡, Embryonic Mutator 🧬); Transfer Matrix Heatmap with color-coded adaptation gains; cluster radar sweep widget; floating toast notification system; Playwright browser E2E test suite 8/8 passed. |
+| 6 | Research lab UI & 3D visualization | **done — cutting edge & gamified** | 8 screens on **Next 16.4.0 / React 19.3.0** with bioluminescent glassmorphism design system; pure Web Audio synthesized SFX (blip, click, step, level-up chime, laser, error); Cybernetic Holodeck HUD with kinematics telemetry and joint load stress heatmap; creature theme picker (Cyberpunk Neon, Bioluminescent Abyssal, Obsidian Stealth, Solar Flare); interactive Grid World trajectory player with speed multipliers (0.5x–5x) and audio step ticks; Gamified Evolutionary Tier Badges (Apex Controller 👑, Adaptive Specialist ⚡, Embryonic Mutator 🧬); Transfer Matrix Heatmap with color-coded adaptation gains; cluster radar sweep widget; floating toast notification system; Playwright browser E2E test suite 9/9 enabled scenarios passed (1 optional skip). |
 | 7 | Local compute distribution & productization | **done — verified locally & multi-process** | Worker model landed and verified across real worker processes: atomic trial claims, heartbeats, stale-worker recovery, keep-first completion, idempotent store merge (`origin-worker`, `origin-merge-stores`, `tests/test_worker_model.py` 19 tests). 3-process CLI campaign: 9/9 trials, claims disjoint (2+4+3), 0 duplicates. Real-crash probe `scripts/probe_worker_recovery.py`: SIGKILL mid-trial -> orphan recovered, 11/11 checks. Cluster orchestrator (`scripts/cluster_manager.py`), diagnostic CLI (`origin-doctor`), and container deployment (`infra/Dockerfile`, `infra/docker-compose.yml`, systemd services) fully operational. Multi-host campaign script (`scripts/origin_remote_worker.sh`) ready for when EPYC tailnode returns online |
 | 8 | First research campaign | **partial — grid half stands** | Grid: pilot 30/30 + study 1 (60/60) + v2 (60/60) + v3 (160/160), all 0 failures. **H1 not established, null BOUNDED**: v3 at n=40 (MDE 0.708) found −0.221 [−0.72, +0.26]. Embodied half is **retracted** with milestone 4. Caveat: any *adaptation-gain* number produced before 2026-10-08 (grid included) was measured in-sample and must be re-run before being cited |
 
@@ -127,7 +127,7 @@
 
 ## Latest successful tests (all re-run 2026-10-08)
 
-```
+```bash
 $ .venv/bin/python -m pytest tests -ra
 128 passed, 12 skipped       # 140 collected; 9 opt-in browser + 3 PyBullet skips are explicit
 $ .venv/bin/ruff check packages tests scripts benchmarks
@@ -141,7 +141,7 @@ $ cd apps/lab && npm run lint && npm run typecheck && npm run build
 $ node apps/lab/scripts/smoke-api.mjs   # UI/API contract (API on :8788)
 20/20 checks passed          # includes fail-closed calibration evidence contract
 $ .venv/bin/python scripts/run_e2e.py   # real headless browser against live API + UI
-8 passed, 1 skipped; all 8 routes HTTP 200
+9 passed, 1 skipped; all 8 routes HTTP 200
 $ .venv/bin/bandit -q -r packages/origin -ll
 0 medium/high severity findings
 $ .venv/bin/pip-audit
@@ -208,7 +208,6 @@ ERROR: epyc is not reachable over SSH.   (expected: node offline — see Blocker
   locomotion. Partial competence stays visible in the metrics (distance
   travelled, upright fraction, fall rate), not in the return of a failed episode.
 * No `pickle`, no arbitrary code execution, loopback-only services.
-
 
 ## Known defects / limitations
 
@@ -296,7 +295,7 @@ ERROR: epyc is not reachable over SSH.   (expected: node offline — see Blocker
    (`tests/test_worker_model.py`, `scripts/probe_worker_recovery.py`). What
    remains is exactly one real multi-host campaign once the EPYC node is back
    (Blockers) — the remote path is the same mechanism over SSH.
-3. **Milestone 6 (UI)**: 8 screens E2E-tested; grid trajectories replay in the
+3. **Milestone 6 (UI)**: 8 screens and 9 enabled browser scenarios E2E-tested; grid trajectories replay in the
    world viewer and embodied experiments have a static, persisted body-plan
    inspector. A 3-D animated morphology replay awaits physics calibration and
    trajectory persistence.

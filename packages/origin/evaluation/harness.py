@@ -57,7 +57,7 @@ def run_episode(env: GridWorld, policy: Any, seed: int | None = None, record_tra
     # (a stateful policy's RNG/program counter must not carry over).
     reset_policy = getattr(policy, "reset", None)
     if callable(reset_policy):
-        reset_policy(int(seed) if seed is not None else 0)
+        reset_policy(seed if seed is not None else 0)
     total = 0.0
     steps = 0
     done = False
@@ -76,13 +76,13 @@ def run_episode(env: GridWorld, policy: Any, seed: int | None = None, record_tra
         done = terminated or truncated
     res = EpisodeResult(
         reward=float(total),
-        steps=int(steps),
+        steps=steps,
         collected=int(info["collected"]),
         hazard_hits=int(info["hazard_hits"]),
         terminated=bool(terminated),
         truncated=bool(truncated),
         descriptor=list(info["descriptor"]),
-        seed=int(seed if seed is not None else 0),
+        seed=seed if seed is not None else 0,
     )
     return (res, trace) if record_trace else res
 
