@@ -16,11 +16,11 @@
 | 5 | Experiment orchestration | **done** | `origin.experiments.runner` + `store`; manifests, resume, cancellation, bounded concurrency, CSV/Parquet |
 | 6 | Research lab UI & 3D visualization | **done — cutting edge & gamified** | 8 screens on **Next 16.4.0 / React 19.3.0** with bioluminescent glassmorphism design system; pure Web Audio synthesized SFX (blip, click, step, level-up chime, laser, error); Cybernetic Holodeck HUD with kinematics telemetry and joint load stress heatmap; creature theme picker (Cyberpunk Neon, Bioluminescent Abyssal, Obsidian Stealth, Solar Flare); interactive Grid World trajectory player with speed multipliers (0.5x–5x) and audio step ticks; Gamified Evolutionary Tier Badges (Apex Controller 👑, Adaptive Specialist ⚡, Embryonic Mutator 🧬); Transfer Matrix Heatmap with color-coded adaptation gains; cluster radar sweep widget; floating toast notification system; Playwright browser E2E test suite 9/9 enabled scenarios passed (1 optional skip). |
 | 7 | Multi-host compute distribution & productization | **done — verified locally & multi-host on EPYC cluster** | Worker model landed and verified across real worker processes: atomic trial claims, heartbeats, stale-worker recovery, keep-first completion, idempotent store merge (`origin-worker`, `origin-merge-stores`, `tests/test_worker_model.py` 19 tests). Real-crash probe `scripts/probe_worker_recovery.py`: 11/11 checks passed. Multi-host remote campaign executed across AMD EPYC 7452 node (`epyc`, 32 cores / 64 threads) via Tailscale SSH batch mode (`origin-run --jobs 32`, 25 trials in 153 s), staged and idempotently merged into local store (`runs/`) with 0 conflicts. |
-| 8 | First research campaign | **done — confirmatory completion across all tracks** | All three pre-registered campaign tracks complete with 0 failures: (1) Single-niche v4 (160/160, exp `59427f9116fa`): MAP-Elites − GA held-out reward +0.679 [+0.112, +1.241], Wilcoxon p=0.0381. (2) Multi-niche v3 (256/256, exp `1e8559d6de45`): MAP-Elites − GA adapted transfer across five shocks +0.418 [+0.057, +0.778], Wilcoxon p=0.0305. (3) Embodied morphology transfer v3 (25/25, exp `1bdb4b622748`): MAP-Elites led GA (+2.548, 0.20 success vs 0.00) on calibrated physics; adaptation recovers +7.56 across 4 distinct body plans. |
+| 8 | First research campaign | **done — original registered tracks complete; claims scoped** | All three original pre-registered campaign tracks completed with 0 failures: (1) Single-niche v4 (160/160, exp `59427f9116fa`): MAP-Elites − GA held-out reward +0.679 [+0.112, +1.241], Wilcoxon p=0.0381. (2) Multi-niche v3 (256/256, exp `1e8559d6de45`): MAP-Elites − GA adapted transfer across five shocks +0.418 [+0.057, +0.778], Wilcoxon p=0.0305. (3) Embodied morphology transfer v3 (25/25, exp `1bdb4b622748`): calibrated transfer costs and recovery measured; MAP-Elites − GA +2.548 has CI [−2.480, +9.272] and is unresolved. |
 
 ## Verified features
 
-* **Embodied morphology transfer confirmed on calibrated physics (H2 v3)** — Pre-registered 5-paired-seed campaign (experiment `1bdb4b622748`, 25/25 trials, 0 failures; protocol `research/protocols/embodied_transfer_v3.md`). Executed on remote cluster `epyc` (32 worker processes) after physical calibration probe passed (`runs/embodied-calibration.json`, yaw-jointed crawler $+1.007\text{ m} \ge 0.050\text{ m}$ forward displacement while remaining upright). Learned methods strictly dominated controls on held-out test reward (MAP-Elites $14.265$, Novelty Search $13.589$, GA $11.717$ vs Random $1.247$, Scripted Gait $-17.438$) with $0.00$ fall rate. Confirmed severe zero-shot morphology transfer costs across distinct body plans (mean $-4.95$ on foreign bodies) and rapid recovery under 8,000-step adaptation (gains $+6.66$ to $+9.50$). MAP-Elites led GA (+2.548, 95% paired bootstrap CI $[-2.480, +9.272]$, MDE $9.294$). Confirmatory report: `research/reports/ORIGIN_M4_Embodied_Transfer_Report_v3.md`.
+* **Embodied transfer measured on calibrated physics (H2 v3)** — Pre-registered 5-paired-seed campaign (experiment `1bdb4b622748`, 25/25 trials, 0 failures; protocol `research/protocols/embodied_transfer_v3.md`). Executed on remote cluster `epyc` (32 worker processes) after physical calibration probe passed (`runs/embodied-calibration.json`, yaw-jointed crawler $+1.007\text{ m} \ge 0.050\text{ m}$ forward displacement while remaining upright). Learned methods strictly dominated controls on held-out test reward (MAP-Elites $14.265$, Novelty Search $13.589$, GA $11.717$ vs Random $1.247$, Scripted Gait $-17.438$) with $0.00$ fall rate. The study confirmed severe zero-shot morphology transfer costs across distinct body plans (mean $-4.95$ on foreign bodies) and rapid recovery under 8,000-step adaptation (gains $+6.66$ to $+9.50$). MAP-Elites led GA by +2.548, but the 95% paired bootstrap CI $[-2.480, +9.272]$ (MDE $9.294$) is inconclusive for that primary comparison. Confirmatory report: `research/reports/ORIGIN_M4_Embodied_Transfer_Report_v3.md`.
 * **Multi-host cluster compute distribution verified on EPYC hardware** — Remote research node `epyc` (AMD EPYC 7452 32-core/64-thread, 168 GiB RAM, Ubuntu Linux) authenticated via Tailscale SSH batch mode. Executed 25 concurrent trials in $153\text{ s}$ under `--jobs 32`, staged remote runs, and idempotently merged into the primary local store via `origin-merge-stores` with 0 conflicts and keep-first trial preservation.
 * **Strict-budget multi-niche replication confirmed (H1.MN v3)** — Pre-registered 64-paired-seed campaign (experiment `1e8559d6de45`, 256/256 trials, 0 failures; protocol `research/protocols/multi_niche_replication_v3.md`). Under strict budget caps (every batch pre-reserved before evaluation, interactions capped at ≤25,000 steps per seed: GA 23,026 vs ME 23,018), decisively confirmed that Quality-Diversity archiving over behavioral niche specializations outperforms single-objective evolution under ecological shocks (+0.418 paired adapted transfer gain [95% bootstrap CI +0.057, +0.778], Wilcoxon p=0.0305). Confirmatory reports in `research/reports/H1_multi_niche_v3_analysis.md` and `research/reports/ORIGIN_Multi_Niche_v3_Research_Report.md`.
 * **Strict-budget single-niche replication confirmed (H1-ME v4)** — Fresh paired 40-seed campaign (experiment `59427f9116fa`, 160/160 trials, 0 failures; protocol `research/protocols/paired_v4_strict_cap.md`). Full optimizer batches were reserved before evaluation; all learned trials stayed within the 500,000-step cap (GA 482,451–497,946; MAP-Elites 491,118–499,580). On the registered held-out base-task endpoint, MAP-Elites exceeded GA by +0.679 (95% paired bootstrap CI [+0.112, +1.241], Wilcoxon p=0.0381). Confirmatory reports: `research/reports/H1_v4_strict_cap_analysis.md` and `research/reports/ORIGIN_Single_Niche_v4_Research_Report.md`.
@@ -133,53 +133,16 @@
 ## Latest successful tests (all re-run 2026-10-09)
 
 ```bash
-$ .venv/bin/python -m pytest tests -ra
-144 passed, 13 skipped       # 157 collected; 10 opt-in browser + 3 PyBullet skips are explicit
-$ .venv/bin/ruff check packages tests scripts benchmarks
+$ .venv-embodied312\Scripts\python.exe -m pytest tests -q
+213 passed, 10 skipped       # 223 collected; browser tests are opt-in
+$ .venv-embodied312\Scripts\python.exe -m ruff check packages tests scripts benchmarks
 All checks passed!
-$ .venv/bin/mypy packages/origin
-Success: no issues found in 32 source files
-$ origin-doctor
-Platform, core dependencies, extensions, store, API, and Lab UI all validated
-$ cd apps/lab && npm run lint && npm run typecheck && npm run build
-✔ No ESLint warnings or errors; typecheck clean; production build OK (8 static routes prerendered)
-$ node apps/lab/scripts/smoke-api.mjs   # UI/API contract (API on :8788)
-20/20 checks passed          # includes fail-closed calibration evidence contract
-$ .venv/bin/python scripts/run_e2e.py   # real headless browser against live API + UI
-9 passed, 1 skipped; all 8 routes HTTP 200
-$ .venv/bin/bandit -q -r packages/origin -ll
-0 medium/high severity findings
-$ .venv/bin/pip-audit
-No known vulnerabilities found
-$ .venv/bin/origin-run --config configs/embodied_transfer.json --store runs --jobs 6
-15 trials run, 0 failed      # experiment 589217adbe9e — corrected task; result is
-                             # a constant -1.000 with 0 successes (task unsolvable)
-$ .venv/bin/python scripts/probe_embodied_morphology.py
-rest: topples at steps 137-162 for 5/10/20 links (zero input)
-primitives x torque: max net displacement 0.194 m (tumbling episodes)
-joint axis x torque x gait: x <= 0.002 m in every variant
-$ .venv/bin/python scripts/analyze_embodied.py --store runs --experiment 589217adbe9e
-all methods: mean -1.000, fall 1.00, success 0.00   # morphology does not locomote
-$ .venv/bin/python scripts/analyze.py --store runs --experiment 8f92870eaeb0 --design paired \
-    --bootstrap-seed 20261010 --protocol-doc research/protocols/paired_v3_power.md \
-    --out research/reports/H1_v3_decisive_analysis.md     # explicit destination required
-map_elites - fixed_objective_ga: -0.221, 95% paired CI [-0.721, +0.262], p=0.538 -> inconclusive
-  minimum detectable paired effect = 0.708 (observed |mean diff| = 0.221)   # bounded null
-$ .venv/bin/bandit -q -r packages/origin  # CI gates medium+
-0 medium/high; 13 low (8 B101 invariant asserts; 5 subprocess-scan lows from
-  runner.py's git manifest helper — static argv, no shell) — all documented
-$ .venv/bin/origin-worker --config <campaign> --store <store>   # x3, real processes
-cli-worker-1 claimed=2 completed=2; cli-worker-2 claimed=4 completed=4;
-  cli-worker-3 claimed=3 completed=3     # 9/9 trials, claims disjoint, 0 duplicates
-$ .venv/bin/origin-merge-stores --from <src> --into <dst>       # run twice
-first:  {trials: 9, conflicts: []}; second: {trials: 0, trials_skipped_done: 9}
-$ .venv/bin/python scripts/probe_worker_recovery.py             # real SIGKILL mid-trial
-11/11 checks passed   # orphan detected, victim reaped, trial recovered,
-                      # every trial done exactly once under the rescuer
-$ .venv/bin/origin-worker --store runs --status
-workers listed with heartbeat ages; trial counts per status
-$ scripts/origin_remote_worker.sh --check
-ERROR: epyc is not reachable over SSH.   (expected: node offline — see Blockers)
+$ .venv-embodied312\Scripts\python.exe -m mypy packages/origin
+Success: no issues found in 33 source files
+$ .venv-embodied312\Scripts\python.exe scripts\probe_embodied_morphology.py --json-out runs\embodied-calibration-local.json
+PASS: best forward gain 0.691m meets the 0.050m acceptance threshold
+$ .venv-embodied312\Scripts\python.exe scripts\run_e2e.py --seed
+28/28 API contract checks; 10/10 browser checks passed
 ```
 
 ## Current architecture decisions
@@ -270,24 +233,33 @@ ERROR: epyc is not reachable over SSH.   (expected: node offline — see Blocker
 
 ## Blockers
 
-* **None.** All prior blockers are resolved:
-  - **Embodied physics calibration:** Completed on Linux/PyBullet host (`epyc`), verified via `scripts/probe_embodied_morphology.py` with $+1.007\text{ m} \ge 0.050\text{ m}$ forward displacement while upright, logged in `runs/embodied-calibration.json`.
-  - **EPYC compute node connectivity:** Node is online on Tailscale, verified via SSH batch mode, utilized for 32-core parallel campaign execution.
+* **No local implementation blocker.** The full PyBullet suite and calibration
+  probe now run on the local Windows toolchain as well as the dedicated Linux
+  physics runner.
+* **No current remote-connectivity claim.** The historical EPYC campaign and
+  its evidence are preserved, but new campaign execution does not assume that
+  a remote node is reachable; the portable CI gates and local workflow remain
+  sufficient for engineering verification.
 
 ## Remaining work
 
-All nine milestones (0 through 8) are **fully completed and verified**:
+All nine engineering milestones (0 through 8) are **implemented and
+verified**. The research program has deliberately separate, unexecuted work:
 
 1. **Milestone 4 (Embodied intelligence / morphology transfer):** Physically calibrated yaw-jointed crawler verified; pre-registered confirmatory H2 campaign (`1bdb4b622748`, 25/25 trials, 0 failures) completed; transfer costs and adaptation recovery confirmed across 4 body plans.
 2. **Milestone 7 (Multi-host compute distribution):** Verified locally with process crashes and recovery (`probe_worker_recovery.py`), and verified across multi-host infrastructure on AMD EPYC 7452 (`epyc`, 32 jobs) with staged idempotent store merge.
-3. **Milestone 8 (Research campaigns):** All three pre-registered campaign tracks complete with 0 failures:
+3. **Completed campaign tracks:** Three original pre-registered campaign tracks completed with 0 failures:
    - Single-Niche Grid World v4 (`59427f9116fa`, 160/160 trials): H1-ME confirmed (+0.679, $p=0.0381$).
    - Multi-Niche Grid World v3 (`1e8559d6de45`, 256/256 trials): H1.MN confirmed (+0.418, $p=0.0305$).
-   - Embodied Morphology Transfer v3 (`1bdb4b622748`, 25/25 trials): H2 confirmed on calibrated physics.
-4. **Future extensions (optional):** Execute the separately registered PPO v2
-   grid and embodied studies; broaden independent replications to new task and
-   morphology families; persist representative recorded physics trajectories for
-   each future embodied campaign.
+   - Embodied Morphology Transfer v3 (`1bdb4b622748`, 25/25 trials): calibrated transfer costs and adaptation recovery measured; MAP-Elites-versus-GA comparison unresolved.
+4. **PPO v2 confirmatory studies:** Execute the separately registered grid and
+   embodied studies before making any PPO efficacy claim. PPO v1 remains
+   exploratory because it was registration-nonconformant.
+5. **Independent replications:** Pre-register and run fresh environments and
+   morphology families without retuning to the observed v3/v4 endpoints.
+6. **Future physics evidence:** Persist representative recorded trajectories
+   for each new embodied campaign so the lab can replay more than calibration
+   and fixture artifacts.
 
 ## Reproduction commands
 
@@ -312,4 +284,6 @@ uv venv --python 3.12 .venv && uv pip install -e '.[dev]' --python .venv/bin/pyt
 
 ## Next executable action
 
-**All core project milestones (0 through 8) are verified and complete.** Continuous regression and CI checks gate all future additions.
+**No unaddressed engineering task is required for the completed milestones.**
+The next research action is a newly executed, registered PPO v2 study or an
+independent replication; continuous regression and CI checks gate both.

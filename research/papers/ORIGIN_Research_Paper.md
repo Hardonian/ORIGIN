@@ -188,8 +188,8 @@ To ensure full reproducibility, all artifacts, database rows, and analysis scrip
 git clone https://github.com/Hardonian/ORIGIN.git && cd ORIGIN
 uv venv --python 3.12 .venv && uv pip install -e '.[all]'
 
-# 2. Re-run complete test suite (144 passed)
-.venv/bin/python -m pytest tests -ra
+# 2. Re-run complete test suite (213 passed; 10 opt-in browser checks skipped)
+.venv/bin/python -m pytest tests -q
 
 # 3. System diagnostics & calibration verification
 .venv/bin/origin-doctor
