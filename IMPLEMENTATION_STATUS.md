@@ -127,15 +127,15 @@
   `infra/docker-compose.yml`, systemd services (`infra/systemd/`), and cross-platform
   cluster orchestrator (`scripts/cluster_manager.py`).
 
-## Latest successful tests (all re-run 2026-10-08)
+## Latest successful tests (all re-run 2026-10-09)
 
 ```bash
 $ .venv/bin/python -m pytest tests -ra
-128 passed, 12 skipped       # 140 collected; 9 opt-in browser + 3 PyBullet skips are explicit
+138 passed, 13 skipped       # 151 collected; 10 opt-in browser + 3 PyBullet skips are explicit
 $ .venv/bin/ruff check packages tests scripts benchmarks
 All checks passed!
 $ .venv/bin/mypy packages/origin
-Success: no issues found in 31 source files
+Success: no issues found in 32 source files
 $ origin-doctor
 Platform, core dependencies, extensions, store, API, and Lab UI all validated
 $ cd apps/lab && npm run lint && npm run typecheck && npm run build
