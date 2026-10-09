@@ -84,6 +84,8 @@ _TRIAL_COLUMNS = {
     "claimed_at": "REAL",
 }
 
+_EXPERIMENT_STATUSES = {"running", "completed", "failed", "cancelled"}
+
 
 class Store:
     def __init__(self, root: str | Path):
@@ -122,6 +124,18 @@ class Store:
             )
             conn.commit()
             conn.close()
+
+    def set_experiment_status(self, exp_id: str, status: str) -> None:
+        """Record a terminal (or resumed) campaign state without touching trials."""
+        if status not in _EXPERIMENT_STATUSES:
+            raise ValueError(f"unknown experiment status {status!r}")
+        with self.lock:
+            conn = self._conn()
+            cur = conn.execute("UPDATE experiments SET status=? WHERE id=?", (status, exp_id))
+            conn.commit()
+            conn.close()
+        if cur.rowcount != 1:
+            raise KeyError(f"unknown experiment {exp_id}")
 
     def add_trial(self, trial_id: str, exp_id: str, algorithm: str, seed: int, budget: int) -> None:
         with self.lock:

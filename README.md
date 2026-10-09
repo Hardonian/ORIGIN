@@ -32,7 +32,7 @@ Initial hypothesis (to be *tested*, not assumed):
 | Articulated-body physics (**PyBullet**) | `origin.environments.embodied` | calibrated yaw-joint crawler; fail-closed probe required before embodied campaigns |
 | Organisms (morphology/controller/lineage) | `origin.organisms` | working |
 | Evolution (fixed-objective GA, novelty search, MAP-Elites) | `origin.evolution` | working |
-| Learning (REINFORCE policy-gradient RL baseline) | `origin.learning` | working |
+| Learning (REINFORCE + PPO RL baselines) | `origin.learning` | implementations working; PPO v1 is exploratory pending its corrected v2 study |
 | Evaluation (train/test isolation, morphology transfer) | `origin.evaluation` | working |
 | Embodied evaluation + transfer | `origin.evaluation.embodied` | instrumentation verified; **M4 results retracted** (2026-10-08) |
 | Experiment runner + store (SQLite/Parquet/CSV) | `origin.experiments` | working |

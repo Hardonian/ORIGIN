@@ -594,14 +594,24 @@ def run_experiment(
                     store.fail_trial(tid, f"{type(exc).__name__}: {exc}")
                     results.append({"trial_id": tid, "algorithm": algo, "seed": seed, "status": "failed", "error": str(exc)})
 
+    summary = store.summary(exp_id)
+    n_terminal = summary["n_done"] + summary["n_failed"]
+    if n_terminal == len(trials):
+        experiment_status = "failed" if summary["n_failed"] else "completed"
+    elif cancelled():
+        experiment_status = "cancelled"
+    else:
+        experiment_status = "running"
+    store.set_experiment_status(exp_id, experiment_status)
+
     exports = store.export_trials(exp_id)
     store.add_artifact(exp_id, None, "trials_csv", exports["csv"])
-    summary = store.summary(exp_id)
     report = {
         "experiment_id": exp_id,
         "name": cfg["name"],
         "n_trials_run": len(results),
         "n_pending_before": len(pending),
+        "experiment_status": experiment_status,
         "wall_seconds": round(time.time() - started, 2),
         "exports": exports,
         "summary": summary,

@@ -92,6 +92,8 @@ def test_store_roundtrip(tmp_path):
     assert len(trials) == 1 and trials[0]["best_fitness"] == 1.0
     exports = store.export_trials("e1")
     assert Path(exports["csv"]).exists()
+    store.set_experiment_status("e1", "completed")
+    assert store.experiment("e1")["status"] == "completed"
 
 
 def test_store_failure_recorded(tmp_path):
@@ -144,6 +146,8 @@ def test_runner_end_to_end(tmp_path):
     summary = store.summary(exp)
     assert summary["n_done"] == 6
     assert summary["n_failed"] == 0
+    assert report["experiment_status"] == "completed"
+    assert store.experiment(exp)["status"] == "completed"
     # metrics must be traceable to real runs
     for t in store.trials(exp):
         if t["status"] == "done":
@@ -162,6 +166,8 @@ def test_runner_cancellation(tmp_path):
     cancel_file.write_text("stop")
     report = run_experiment(TINY, store_root=tmp_path, jobs=1, resume=False, cancel_file=cancel_file)
     assert report["n_trials_run"] == 0
+    assert report["experiment_status"] == "cancelled"
+    assert Store(tmp_path).experiment(report["experiment_id"])["status"] == "cancelled"
 
 
 def test_environment_manifest_has_git_and_hardware():

@@ -1,120 +1,158 @@
-"""Statistical analysis for the pre-registered Actor-Critic (PPO) benchmark.
+#!/usr/bin/env python3
+"""Fail-closed analysis for the registered PPO Actor-Critic v2 studies.
 
-Performs paired bootstrap and Wilcoxon tests per research/protocols/actor_critic_v1.md.
+The v1 grid campaign is deliberately rejected: its executed configuration did
+not match its registration and is retained only as an exploratory implementation
+artifact.  Every v2 analysis must name the immutable configuration it verifies.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
+from pathlib import Path
+from typing import Any
 
-import numpy as np
+from origin.evaluation.stats import min_detectable_effect, paired_bootstrap_ci, wilcoxon_signed_rank
+from origin.experiments.runner import experiment_id
+from origin.experiments.store import Store
+
+RESAMPLES = 10_000
 
 
-def analyze_actor_critic(store_root: str, exp_id: str | None = None) -> dict:
-    from origin.experiments.store import Store
+def _load_config(path: str | Path) -> dict[str, Any]:
+    config = json.loads(Path(path).read_text(encoding="utf-8"))
+    if config.get("name") in {"actor_critic_grid_v1", "actor_critic_embodied_v1"}:
+        raise ValueError(
+            "Actor-Critic v1 is exploratory because its executed configuration "
+            "did not match its registration; see ACTOR_CRITIC_V1_CONFIGURATION_AUDIT.md"
+        )
+    primary = config.get("primary_comparison")
+    if not isinstance(primary, dict):
+        raise ValueError("registered config must contain primary_comparison")
+    if primary.get("method") != "ppo":
+        raise ValueError("Actor-Critic v2 primary method must be 'ppo'")
+    if primary.get("baseline") not in {"reinforce", "random"}:
+        raise ValueError("Actor-Critic v2 baseline must be 'reinforce' or 'random'")
+    if primary.get("endpoint") != "test_mean_reward":
+        raise ValueError("Actor-Critic v2 endpoint must be test_mean_reward")
+    return config
+
+
+def _held_out_by_seed(store: Store, exp_id: str) -> tuple[dict[str, dict[int, float]], list[dict[str, Any]]]:
+    values: dict[str, dict[int, float]] = {}
+    done: list[dict[str, Any]] = []
+    for trial in store.trials(exp_id):
+        if trial["status"] != "done":
+            continue
+        done.append(trial)
+        metrics = json.loads(trial["metrics_json"]) if trial.get("metrics_json") else {}
+        score = metrics.get("test_mean_reward")
+        if score is not None:
+            values.setdefault(trial["algorithm"], {})[int(trial["seed"])] = float(score)
+    return values, done
+
+
+def _require_registered_matrix(
+    by_seed: dict[str, dict[int, float]],
+    done: list[dict[str, Any]],
+    config: dict[str, Any],
+) -> tuple[list[int], str, str]:
+    primary = config["primary_comparison"]
+    method = str(primary["method"])
+    baseline = str(primary["baseline"])
+    expected = [int(seed) for seed in config["seeds"]]
+    if len(expected) != len(set(expected)):
+        raise ValueError("registered method seeds must be unique")
+
+    problems: list[str] = []
+    for algorithm in (method, baseline):
+        observed = by_seed.get(algorithm, {})
+        missing = sorted(set(expected) - set(observed))
+        unexpected = sorted(set(observed) - set(expected))
+        nonfinite = sorted(seed for seed, value in observed.items() if not math.isfinite(value))
+        if missing:
+            problems.append(f"{algorithm}: missing seeds {missing}")
+        if unexpected:
+            problems.append(f"{algorithm}: unexpected seeds {unexpected}")
+        if nonfinite:
+            problems.append(f"{algorithm}: non-finite held-out scores for {nonfinite}")
+
+    cap = int(config["budget"])
+    over_cap = sorted(
+        int(trial["seed"])
+        for trial in done
+        if trial["algorithm"] == method and int(trial["interactions"]) > cap
+    )
+    if over_cap:
+        problems.append(f"{method}: training cap {cap} exceeded for seeds {over_cap}")
+    if problems:
+        raise ValueError("incomplete or invalid Actor-Critic analysis: " + "; ".join(problems))
+    return sorted(expected), method, baseline
+
+
+def analyze_actor_critic(store_root: str, config_path: str | Path, exp_id: str | None = None) -> dict[str, Any]:
+    """Analyze one exact registered v2 campaign or fail before inference."""
+    config = _load_config(config_path)
+    expected_id = experiment_id(config)
+    exp_id = exp_id or expected_id
+    if exp_id != expected_id:
+        raise ValueError(
+            f"experiment {exp_id} does not match the registered configuration; expected {expected_id}"
+        )
 
     store = Store(store_root)
-    if exp_id is None:
-        # Find experiment by name
-        for exp in store.list_experiments():
-            if exp["name"] == "actor_critic_grid_v1":
-                exp_id = exp["id"]
-                break
-    if exp_id is None:
-        raise FileNotFoundError("actor_critic_grid_v1 experiment not found in store")
+    experiment = store.experiment(exp_id)
+    if experiment is None:
+        raise FileNotFoundError(f"registered experiment {exp_id} not found in store")
+    stored_config = json.loads(experiment["config_json"])
+    if stored_config != config:
+        raise ValueError("stored experiment configuration differs from the registered JSON")
 
-    trials = store.trials(exp_id)
-    done_trials = [t for t in trials if t["status"] == "done"]
-    if not done_trials:
-        raise ValueError(f"no completed trials in experiment {exp_id}")
+    by_seed, done = _held_out_by_seed(store, exp_id)
+    seeds, method, baseline = _require_registered_matrix(by_seed, done, config)
+    method_values = [by_seed[method][seed] for seed in seeds]
+    baseline_values = [by_seed[baseline][seed] for seed in seeds]
+    bootstrap_seed = int(config["primary_comparison"]["bootstrap_seed"])
+    result = paired_bootstrap_ci(method_values, baseline_values, resamples=RESAMPLES, seed=bootstrap_seed)
+    statistic, p_value = wilcoxon_signed_rank(method_values, baseline_values)
+    diffs = [method_value - baseline_value for method_value, baseline_value in zip(method_values, baseline_values, strict=True)]
+    mde = min_detectable_effect(diffs, n=len(diffs))
 
-    # Group by algorithm and seed
-    results: dict[str, dict[int, float]] = {}
-    for t in done_trials:
-        algo = t["algorithm"]
-        seed = int(t["seed"])
-        metrics = json.loads(t["metrics_json"] or "{}")
-        test_r = metrics.get("test_mean_reward")
-        if test_r is not None:
-            results.setdefault(algo, {})[seed] = float(test_r)
-
-    ppo_scores = results.get("ppo", {})
-    rf_scores = results.get("reinforce", {})
-    rnd_scores = results.get("random", {})
-
-    shared_seeds = sorted(set(ppo_scores.keys()) & set(rf_scores.keys()) & set(rnd_scores.keys()))
-    if not shared_seeds:
-        raise ValueError("no overlapping seeds across PPO, REINFORCE, and random")
-
-    ppo_arr = np.array([ppo_scores[s] for s in shared_seeds])
-    rf_arr = np.array([rf_scores[s] for s in shared_seeds])
-    rnd_arr = np.array([rnd_scores[s] for s in shared_seeds])
-
-    diff_ppo_rf = ppo_arr - rf_arr
-    diff_ppo_rnd = ppo_arr - rnd_arr
-
-    # Bootstrap 95% CI (10,000 resamples, seed 20261018)
-    rng = np.random.default_rng(20261018)
-    n = len(shared_seeds)
-    boot_rf = [float(np.mean(rng.choice(diff_ppo_rf, size=n, replace=True))) for _ in range(10000)]
-    ci_rf = [float(np.percentile(boot_rf, 2.5)), float(np.percentile(boot_rf, 97.5))]
-
-    boot_rnd = [float(np.mean(rng.choice(diff_ppo_rnd, size=n, replace=True))) for _ in range(10000)]
-    ci_rnd = [float(np.percentile(boot_rnd, 2.5)), float(np.percentile(boot_rnd, 97.5))]
-
-    # Wilcoxon test if scipy is available
-    try:
-        from scipy.stats import wilcoxon
-
-        stat_rf, p_rf = wilcoxon(diff_ppo_rf)
-        p_val_rf = float(p_rf)
-    except Exception:
-        p_val_rf = None
-
-    try:
-        from scipy.stats import wilcoxon
-
-        stat_rnd, p_rnd = wilcoxon(diff_ppo_rnd)
-        p_val_rnd = float(p_rnd)
-    except Exception:
-        p_val_rnd = None
-
-    h_ac1_supported = bool(ci_rf[0] > 0 and float(np.mean(diff_ppo_rf)) > 0)
-
-    report = {
+    return {
         "experiment_id": exp_id,
-        "n_seeds": n,
-        "shared_seeds": shared_seeds,
-        "ppo_mean": float(np.mean(ppo_arr)),
-        "reinforce_mean": float(np.mean(rf_arr)),
-        "random_mean": float(np.mean(rnd_arr)),
-        "ppo_vs_reinforce": {
-            "mean_diff": float(np.mean(diff_ppo_rf)),
-            "std_diff": float(np.std(diff_ppo_rf, ddof=1)),
-            "bootstrap_ci_95": ci_rf,
-            "wilcoxon_p": p_val_rf,
-            "decision": "SUPPORTED" if h_ac1_supported else "INCONCLUSIVE",
-        },
-        "ppo_vs_random": {
-            "mean_diff": float(np.mean(diff_ppo_rnd)),
-            "std_diff": float(np.std(diff_ppo_rnd, ddof=1)),
-            "bootstrap_ci_95": ci_rnd,
-            "wilcoxon_p": p_val_rnd,
+        "config": str(config_path),
+        "n_seeds": len(seeds),
+        "shared_seeds": seeds,
+        "method": method,
+        "baseline": baseline,
+        "method_mean": float(sum(method_values) / len(method_values)),
+        "baseline_mean": float(sum(baseline_values) / len(baseline_values)),
+        "training_budget": int(config["budget"]),
+        "comparison": {
+            "mean_diff": result.point,
+            "bootstrap_ci_95": [result.lo, result.hi],
+            "wilcoxon": {"statistic": statistic, "p_value": p_value},
+            "minimum_detectable_effect": mde,
+            "decision": result.verdict,
         },
     }
-    return report
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Analyze Actor-Critic benchmark results.")
+    parser = argparse.ArgumentParser(description="Analyze a registered Actor-Critic PPO v2 campaign.")
     parser.add_argument("--store", default="runs", help="Store directory")
-    parser.add_argument("--experiment", default=None, help="Experiment ID (optional)")
+    parser.add_argument("--config", required=True, help="Immutable v2 registration JSON")
+    parser.add_argument("--experiment", default=None, help="Experiment ID; defaults to the config-derived ID")
     args = parser.parse_args()
 
-    rep = analyze_actor_critic(args.store, args.experiment)
-    print(json.dumps(rep, indent=2))
+    try:
+        report = analyze_actor_critic(args.store, args.config, args.experiment)
+    except (FileNotFoundError, ValueError) as exc:
+        parser.error(str(exc))
+    print(json.dumps(report, indent=2, sort_keys=True))
     return 0
 
 

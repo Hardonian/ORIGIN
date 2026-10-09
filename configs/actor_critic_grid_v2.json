@@ -1,0 +1,35 @@
+{
+  "name": "actor_critic_grid_v2",
+  "protocol": "actor_critic_v2_grid",
+  "description": "Pre-registered PPO-versus-REINFORCE gridworld study. The sole confirmatory endpoint is paired held-out base-task reward; see research/protocols/actor_critic_v2.md.",
+  "env": {
+    "height": 10,
+    "width": 10,
+    "max_steps": 100,
+    "terrain": "random",
+    "obstacle_density": 0.02,
+    "n_resources": 5,
+    "n_hazards": 0,
+    "resource_regen": false,
+    "step_penalty": 0.001,
+    "wall_penalty": 0.0,
+    "hazard_penalty": 0.25,
+    "hazard_energy_drain": 5.0,
+    "resource_reward": 1.0,
+    "energy_start": 100.0,
+    "energy_step": 0.1,
+    "energy_capacity": 100.0,
+    "seed": 0
+  },
+  "train_seeds": [11, 22, 33, 44],
+  "test_seeds": [101, 202, 303, 404],
+  "budget": 500000,
+  "seeds": [400, 401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 416, 417, 418, 419, 420, 421, 422, 423, 424, 425, 426, 427, 428, 429, 430, 431, 432, 433, 434, 435, 436, 437, 438, 439],
+  "include_baselines": ["random", "heuristic"],
+  "transfer": {"adapt": false},
+  "primary_comparison": {"method": "ppo", "baseline": "reinforce", "endpoint": "test_mean_reward", "bootstrap_seed": 20261019},
+  "algorithms": {
+    "ppo": {"hidden": [24], "episodes_per_update": 4, "actor_lr": 0.008, "critic_lr": 0.012, "gamma": 0.99, "lam": 0.95, "clip_eps": 0.2, "epochs_per_update": 4, "entropy_coef": 0.015},
+    "reinforce": {"hidden": [24], "episodes_per_update": 4, "lr": 0.01, "gamma": 0.99, "entropy_coef": 0.02}
+  }
+}

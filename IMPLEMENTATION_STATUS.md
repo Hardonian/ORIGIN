@@ -250,6 +250,12 @@ ERROR: epyc is not reachable over SSH.   (expected: node offline — see Blocker
   held-out reward (−1.740, 95% paired CI [−2.126, −1.301], Wilcoxon p<0.0001).
   It is not promoted and remains excluded from powered primary comparisons; do
   not tune this configuration against that endpoint.
+* **PPO v1 is exploratory, not confirmatory.** The completed grid implementation
+  run used a 50,000-step configuration that does not match its 500,000-step
+  registration; it is preserved and audited in
+  `research/reports/ACTOR_CRITIC_V1_CONFIGURATION_AUDIT.md`. The corrected,
+  unexecuted v2 registration fixes the grid and embodied task specifications in
+  `research/protocols/actor_critic_v2.md` and the corresponding v2 configs.
 * **The scripted heuristic is privileged** (global BFS) and is a reference, not a
   like-for-like competitor. The embodied `scripted_gait` is open-loop and cannot
   adapt at all by construction.
