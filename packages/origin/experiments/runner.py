@@ -43,6 +43,7 @@ from origin.evaluation.harness import (
     Evaluator,
     evaluate_policy,
     morphology_variants,
+    multi_niche_variants,
     perturbation_variants,
 )
 from origin.evolution import fine_tune, fixed_objective_ga, map_elites, novelty_search

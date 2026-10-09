@@ -101,6 +101,11 @@
 * **Calibration evidence integrity** — passing records require a body config hash,
   finite positive acceptance values, and at least one measured finite gait gain;
   malformed or synthetic-looking records remain invalid (`tests/test_api.py`).
+* **Multi-niche grid environment** — distinct resource-B generation, optional zone
+  placement, niche-aware seven-dimensional observations, per-niche counters and
+  descriptors, state round-tripping, and heuristic targeting are covered by
+  environment and organism tests (`tests/test_environment.py`,
+  `tests/test_organisms.py`).
 * **Interactive 3D morphology viewer & cluster dashboard** — Lab UI features an
   interactive HTML5 Canvas 3D articulated crawler kinematics simulator with real-time
   gait undulation playback (`wave_a`, `wave_b`, `flex`, `extend`), a real-time
@@ -118,7 +123,7 @@
 
 ```
 $ .venv/bin/python -m pytest tests -ra
-112 passed, 12 skipped       # 124 collected; 9 opt-in browser + 3 PyBullet skips are explicit
+117 passed, 12 skipped       # 129 collected; 9 opt-in browser + 3 PyBullet skips are explicit
 $ .venv/bin/ruff check packages tests scripts benchmarks
 All checks passed!
 $ .venv/bin/mypy packages/origin
@@ -289,8 +294,9 @@ ERROR: epyc is not reachable over SSH.   (expected: node offline — see Blocker
    world viewer and embodied experiments have a static, persisted body-plan
    inspector. A 3-D animated morphology replay awaits physics calibration and
    trajectory persistence.
-4. A multi-niche grid task: H1 is closed for the current single-niche world as a
-   bounded null (< ~0.71).
+4. A multi-niche grid campaign: the environment and controllers now support
+   distinct resource niches; run a fresh pre-registered campaign before making
+   any transfer/generalisation claim beyond the current single-niche bounded null.
 5. Watch for an upstream fix to the dev-only `braces` advisory (Next lint plugin).
 
 ## Reproduction commands

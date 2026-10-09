@@ -159,7 +159,7 @@ class TransferResult:
 def morphology_variants(base: GridWorldConfig) -> dict[str, GridWorldConfig]:
     """Genuinely distinct sensor/actuator/body configurations.
 
-    The control interface stays 9-D in every case; what changes is sensor
+    The control interface stays 7-D in every case; what changes is sensor
     fidelity (``obs_mode``), actuation (``max_speed``) and body (``energy_capacity``).
     """
     variants: dict[str, GridWorldConfig] = {}
@@ -198,4 +198,51 @@ def perturbation_variants(base: GridWorldConfig) -> dict[str, GridWorldConfig]:
         for k, v in mut.items():
             setattr(c, k, v)
         variants[name] = c
+    return variants
+
+
+def multi_niche_variants(base: GridWorldConfig) -> dict[str, GridWorldConfig]:
+    """Ecological niche shifts and trade-off variations for multi-niche transfer evaluation.
+
+    Every returned configuration is revalidated after mutation; callers can
+    safely use the variants with small test worlds as well as campaign-sized
+    worlds.
+    """
+    variants: dict[str, GridWorldConfig] = {}
+    tot_res = base.n_resources + base.n_resources_b
+    capacity = max(1, base.height * base.width - base.n_hazards - 1)
+
+    # Variant 1: Niche B only (Niche A resources completely depleted)
+    c1 = GridWorldConfig.from_dict(base.to_dict())
+    c1.n_resources = 0
+    c1.n_resources_b = min(max(2, tot_res), capacity)
+    variants["niche_b_only"] = c1
+
+    # Variant 2: Niche A only (Niche B resources completely depleted)
+    c2 = GridWorldConfig.from_dict(base.to_dict())
+    c2.n_resources = min(max(2, tot_res), capacity)
+    c2.n_resources_b = 0
+    variants["niche_a_only"] = c2
+
+    # Variant 3: Payoff inversion (Niche A becomes lucrative, Niche B becomes marginal)
+    c3 = GridWorldConfig.from_dict(base.to_dict())
+    c3.resource_reward, c3.resource_b_reward = base.resource_b_reward, base.resource_reward
+    c3.resource_energy, c3.resource_b_energy = base.resource_b_energy, base.resource_energy
+    variants["niche_payoff_swap"] = c3
+
+    # Variant 4: Toxic Niche B (Hazard dense terrain surrounding high-yield resources)
+    c4 = GridWorldConfig.from_dict(base.to_dict())
+    max_h = max(0, c4.height * c4.width - c4.n_resources - c4.n_resources_b - 1)
+    c4.n_hazards = min(max_h, max(base.n_hazards * 2, 12))
+    c4.hazard_penalty = base.hazard_penalty * 2.0
+    variants["niche_toxic_hazard"] = c4
+
+    # Variant 5: Scarcity shock (resource availability slashed by 50%)
+    c5 = GridWorldConfig.from_dict(base.to_dict())
+    c5.n_resources = max(1, base.n_resources // 2)
+    c5.n_resources_b = max(1, base.n_resources_b // 2)
+    variants["niche_scarcity_shock"] = c5
+
+    for variant in variants.values():
+        variant.validate()
     return variants

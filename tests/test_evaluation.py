@@ -9,6 +9,7 @@ from origin.evaluation.harness import (
     Evaluator,
     evaluate_policy,
     morphology_variants,
+    multi_niche_variants,
     perturbation_variants,
     run_episode,
 )
@@ -72,3 +73,28 @@ def test_transfer_to_different_morphology_executes():
     for name, vcfg in morphology_variants(base).items():
         res = evaluate_policy(vcfg, org, [1, 2])
         assert "mean_reward" in res, name
+
+
+def test_multi_niche_transfer_variants_are_valid_and_distinct():
+    base = GridWorldConfig(
+        height=8,
+        width=8,
+        max_steps=20,
+        n_resources=2,
+        n_resources_b=2,
+        n_hazards=1,
+        resource_regen=False,
+        obs_mode="multi_niche",
+        seed=0,
+    )
+    variants = multi_niche_variants(base)
+    assert {
+        "niche_a_only",
+        "niche_b_only",
+        "niche_payoff_swap",
+        "niche_toxic_hazard",
+        "niche_scarcity_shock",
+    } <= set(variants)
+    assert len({cfg.config_hash() for cfg in variants.values()}) == len(variants)
+    for cfg in variants.values():
+        cfg.validate()
