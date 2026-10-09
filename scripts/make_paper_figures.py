@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
@@ -89,7 +90,7 @@ def generate_fig1(store: Store, out_dir: Path) -> Path:
 
     bplot = ax1.boxplot(data, patch_artist=True, tick_labels=labels, widths=0.55,
                         medianprops={"color": "#0f172a", "linewidth": 1.5})
-    for patch, color in zip(bplot["boxes"], colors):
+    for patch, color in zip(bplot["boxes"], colors, strict=False):
         patch.set_facecolor(color)
         patch.set_alpha(0.75)
 
@@ -276,8 +277,8 @@ def generate_fig4(out_dir: Path) -> Path:
     p_vals = ["p = 0.0381 *", "p = 0.0305 *", "p = 0.4375 (MDE 9.29)"]
 
     y = np.arange(len(campaigns))
-    ax.errorbar(effects, y, xerr=[[e - l for e, l in zip(effects, ci_low)],
-                                  [h - e for e, h in zip(effects, ci_high)]],
+    ax.errorbar(effects, y, xerr=[[e - lo for e, lo in zip(effects, ci_low, strict=False)],
+                                  [h - e for e, h in zip(effects, ci_high, strict=False)]],
                 fmt="o", color="#047857", ecolor="#059669", elinewidth=2.5, capsize=8,
                 markersize=8, label="Paired Point Estimate & 95% Bootstrap CI")
 
