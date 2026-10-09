@@ -28,7 +28,8 @@ EMPTY = 0
 OBSTACLE = 1
 RESOURCE = 2
 HAZARD = 3
-RESOURCE_B = 4
+# Keep cell ids disjoint from the viewer's transient agent overlay (4).
+RESOURCE_B = 5
 
 CELL_NAMES = {
     EMPTY: "empty",

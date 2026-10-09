@@ -53,6 +53,7 @@ const COLORS: Record<number, string> = {
   2: "#3fb950",
   3: "#f85149",
   4: "#00f0ff",
+  5: "#c084fc",
 };
 
 function kindFromDetail(detail: ExperimentDetail): Exclude<EnvironmentKind, null> {
@@ -440,7 +441,7 @@ export default function WorldPage() {
                       boxShadow: cell === 4 ? "0 0 10px #00f0ff" : "none",
                       transition: "all 0.1s ease",
                     }}
-                    title={`Cell [${r}, ${c}] - ${cell === 4 ? "Agent" : cell === 1 ? "Obstacle" : cell === 2 ? "Resource" : cell === 3 ? "Hazard" : "Empty"}`}
+                    title={`Cell [${r}, ${c}] - ${cell === 4 ? "Agent" : cell === 1 ? "Obstacle" : cell === 2 ? "Resource" : cell === 3 ? "Hazard" : cell === 5 ? "Niche B resource" : "Empty"}`}
                   />
                 ))
               )}
@@ -463,6 +464,10 @@ export default function WorldPage() {
             <span>
               <span className="swatch" style={{ background: COLORS[3] }} />
               hazard (-damage)
+            </span>
+            <span>
+              <span className="swatch" style={{ background: COLORS[5] }} />
+              niche B resource
             </span>
             <span>
               <span

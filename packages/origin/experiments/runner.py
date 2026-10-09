@@ -178,6 +178,16 @@ def run_trial(algorithm: str, seed: int, cfg: dict[str, Any]) -> dict[str, Any]:
     if kind == "embodied":
         return _run_trial_embodied(algorithm, seed, base, train_seeds, test_seeds, budget, kwargs, cfg)
 
+    if algorithm == "map_elites" and getattr(base, "n_resources_b", 0) > 0:
+        kwargs.setdefault("desc_dims", (0, 1))
+        kwargs.setdefault(
+            "bounds",
+            [
+                (0.0, max(4.0, float(getattr(base, "n_resources", 6) * 2))),
+                (0.0, max(4.0, float(getattr(base, "n_resources_b", 6) * 2))),
+            ],
+        )
+
     if algorithm in ("random", "heuristic"):
         return _run_baseline(algorithm, seed, base, train_seeds, test_seeds, cfg)
 
@@ -231,7 +241,10 @@ def _run_baseline(algorithm: str, seed: int, base: GridWorldConfig, train_seeds:
     train = evaluate_policy(base, pol, train_seeds)
     test = evaluate_policy(base, pol, test_seeds)
     transfer = {}
-    for name, vcfg in {**morphology_variants(base), **perturbation_variants(base)}.items():
+    all_variants = {**morphology_variants(base), **perturbation_variants(base)}
+    if getattr(base, "n_resources_b", 0) > 0:
+        all_variants.update(multi_niche_variants(base))
+    for name, vcfg in all_variants.items():
         try:
             r = evaluate_policy(vcfg, pol, test_seeds)
             transfer[name] = {"zero_shot_mean_reward": r["mean_reward"], "zero_shot_std": r["std_reward"]}
@@ -486,6 +499,21 @@ def _transfer_report(
             report[name] = entry
         except Exception as exc:
             report[name] = {"error": str(exc), "kind": "morphology"}
+
+    if getattr(base, "n_resources_b", 0) > 0:
+        for name, ncfg in multi_niche_variants(base).items():
+            try:
+                zs = evaluate_policy(ncfg, org, test_seeds)
+                entry = {"zero_shot_mean_reward": zs["mean_reward"], "zero_shot_std": zs["std_reward"], "kind": "niche"}
+                if do_adapt and adapt_seeds:
+                    ad = fine_tune(org, ncfg, seed=adapt_seeds[0], budget=adapt_budget, seeds=adapt_seeds)
+                    assert ad.best_organism is not None
+                    after = evaluate_policy(ncfg, ad.best_organism, test_seeds)
+                    entry["adapted_mean_reward"] = after["mean_reward"]
+                    entry["adaptation_gain"] = after["mean_reward"] - zs["mean_reward"]
+                report[name] = entry
+            except Exception as exc:
+                report[name] = {"error": str(exc), "kind": "niche"}
 
     for name, pcfg in perturbation_variants(base).items():
         try:

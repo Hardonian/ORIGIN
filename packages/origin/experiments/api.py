@@ -137,7 +137,15 @@ def _world(store: Store, exp_id: str, trial_id: str, seed: int) -> dict:
         a = org.act(obs)
         obs, r, term, trunc, info = env.step(a)
         reward += r
-        trajectory.append({"agent": info["agent"], "action": a, "reward": round(r, 4), "collected": info["collected"], "energy": round(info["energy"], 2)})
+        trajectory.append({
+            "agent": info["agent"],
+            "action": a,
+            "reward": round(r, 4),
+            "collected": info["collected"],
+            "collected_a": info.get("collected_a", info["collected"]),
+            "collected_b": info.get("collected_b", 0),
+            "energy": round(info["energy"], 2),
+        })
         done = term or trunc
         if done:
             break

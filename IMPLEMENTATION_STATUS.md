@@ -123,7 +123,7 @@
 
 ```
 $ .venv/bin/python -m pytest tests -ra
-117 passed, 12 skipped       # 129 collected; 9 opt-in browser + 3 PyBullet skips are explicit
+118 passed, 12 skipped       # 130 collected; 9 opt-in browser + 3 PyBullet skips are explicit
 $ .venv/bin/ruff check packages tests scripts benchmarks
 All checks passed!
 $ .venv/bin/mypy packages/origin
