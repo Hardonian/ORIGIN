@@ -28,7 +28,9 @@ It is deliberately not tuned for peak sample efficiency; RL baselines are known
 to be sample-hungry and this is reported honestly rather than hidden. It is a
 **functional, non-confirmatory control**: it is excluded from the powered
 single-niche and multi-niche primary comparisons. The hidden-layer gradient path
-is regression-tested, but a post-fix held-out diagnostic still did not establish
-reliable performance above the random control. Any attempt to promote it to a
-research comparison requires a fresh pre-registered RL-specific study, rather
-than tuning on the existing held-out task.
+is regression-tested. A fresh strict-cap, 40-seed registered promotion study
+(`b4c379fcddb7`) found it below the random control on held-out reward
+(−1.740, 95% paired CI [−2.126, −1.301]); it is therefore not promoted.
+Any future RL comparison requires a new pre-registered algorithmic intervention
+and fresh method seeds, rather than tuning this configuration on the observed
+endpoint.

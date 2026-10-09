@@ -132,7 +132,7 @@
 
 ```bash
 $ .venv/bin/python -m pytest tests -ra
-141 passed, 13 skipped       # 154 collected; 10 opt-in browser + 3 PyBullet skips are explicit
+144 passed, 13 skipped       # 157 collected; 10 opt-in browser + 3 PyBullet skips are explicit
 $ .venv/bin/ruff check packages tests scripts benchmarks
 All checks passed!
 $ .venv/bin/mypy packages/origin
@@ -245,10 +245,11 @@ ERROR: epyc is not reachable over SSH.   (expected: node offline — see Blocker
   frontend CI; the residual dev-only advisory remains documented in `SECURITY.md`
   and is not shipped in the app bundle.
 * **REINFORCE is a functional, non-confirmatory control.** The hidden-layer
-  backpropagation derivative is now regression-tested, but a post-fix held-out
-  diagnostic still did not establish reliable performance above random on the
-  grid task. It is excluded from powered primary comparisons; a fresh,
-  pre-registered RL-specific study is required before it is promoted.
+  backpropagation derivative is regression-tested, and its fresh strict-cap
+  40-seed promotion study (`b4c379fcddb7`) formally found it below random on
+  held-out reward (−1.740, 95% paired CI [−2.126, −1.301], Wilcoxon p<0.0001).
+  It is not promoted and remains excluded from powered primary comparisons; do
+  not tune this configuration against that endpoint.
 * **The scripted heuristic is privileged** (global BFS) and is a reference, not a
   like-for-like competitor. The embodied `scripted_gait` is open-loop and cannot
   adapt at all by construction.
@@ -312,10 +313,10 @@ ERROR: epyc is not reachable over SSH.   (expected: node offline — see Blocker
    H1.MN confirmed with statistical significance under strict budget caps: MAP-Elites outperforms GA on adapted transfer
    (+0.418 [+0.057, +0.778], Wilcoxon p=0.0305). Confirmatory reports in `research/reports/H1_multi_niche_v3_analysis.md`
    and `research/reports/ORIGIN_Multi_Niche_v3_Research_Report.md`.
-5. **REINFORCE promotion (optional).** It remains a functional but
-   non-confirmatory control. Do not tune it on existing held-out tasks; if RL is
-   strategically important, pre-register a dedicated actor-critic or
-   hyperparameter study with fresh train/test seeds.
+5. **REINFORCE successor (optional).** Promotion v1 is falsified for the fixed
+   pure-NumPy REINFORCE configuration. If RL is strategically important,
+   pre-register an algorithmic intervention (for example actor-critic), with
+   fresh method and train/test seeds; do not tune the falsified configuration.
 6. Watch for an upstream fix to the dev-only `braces` advisory (Next lint plugin).
 
 ## Reproduction commands

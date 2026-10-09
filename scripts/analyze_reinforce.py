@@ -78,6 +78,24 @@ def main() -> int:
     diffs = [m - b for m, b in zip(method, baseline, strict=True)]
     mde = min_detectable_effect(diffs, n=len(diffs))
 
+    if result.verdict.startswith("supported"):
+        scope_note = (
+            "The supported result promotes REINFORCE only as a reproducible control on this grid "
+            "task; it makes no claim about general RL performance or a comparison to evolutionary methods."
+        )
+    elif result.verdict.startswith("falsified"):
+        scope_note = (
+            "REINFORCE is not promoted by this study. A future RL comparison would require a new "
+            "pre-registered algorithmic intervention and fresh method seeds; this fixed configuration "
+            "must not be tuned against the observed endpoint."
+        )
+    else:
+        scope_note = (
+            "The result is inconclusive for promotion. Any future RL comparison requires a new "
+            "pre-registered intervention and fresh method seeds; this fixed configuration must not be "
+            "tuned against the observed endpoint."
+        )
+
     lines = [
         "# REINFORCE promotion v1 — Pre-registered strict-cap analysis",
         "",
@@ -103,9 +121,7 @@ def main() -> int:
         "",
         "## Precision and scope",
         "",
-        f"The observed paired minimum detectable effect at n={len(seeds)} is {mde:.3f}. "
-        "This result can promote REINFORCE only as a reproducible control on this grid task; "
-        "it makes no claim about general RL performance or a comparison to evolutionary methods.",
+        f"The observed paired minimum detectable effect at n={len(seeds)} is {mde:.3f}. {scope_note}",
         "",
         "## Reproduction",
         "",
