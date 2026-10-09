@@ -133,7 +133,6 @@ export default function ArtifactsPage() {
                   transition: "transform 0.2s ease, border-color 0.2s ease",
                 }}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={getArtifactFileUrl(p.id)}
                   alt={p.path}

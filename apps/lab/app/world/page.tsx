@@ -416,7 +416,7 @@ export default function WorldPage() {
                   ) : (
                     `${currentStepData.collected} items`
                   )
-                ) : Boolean(world.config.n_resources_b) ? (
+                ) : world.config.n_resources_b ? (
                   <span>
                     <span style={{ color: "#3fb950" }}>0 A</span>
                     <span style={{ color: "var(--muted)", margin: "0 6px" }}>/</span>
