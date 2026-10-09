@@ -188,7 +188,7 @@ class GridWorld(gym.Env if gym is not None else object):  # type: ignore[misc]
 
         if cfg.terrain == "random":
             n_cells = cfg.height * cfg.width
-            n_obstacles = int(round(cfg.obstacle_density * n_cells))
+            n_obstacles = round(cfg.obstacle_density * n_cells)
             idx = rng.choice(n_cells, size=min(n_obstacles, n_cells), replace=False)
             rows, cols = np.unravel_index(idx, (cfg.height, cfg.width))
             self._grid[rows, cols] = OBSTACLE
@@ -255,8 +255,8 @@ class GridWorld(gym.Env if gym is not None else object):  # type: ignore[misc]
     # ------------------------------------------------------------------ #
     def reset(self, *, seed: int | None = None, options: dict[str, Any] | None = None):
         if seed is not None:
-            self.config.seed = int(seed)
-        self._episode_seed = int(self.config.seed)
+            self.config.seed = seed
+        self._episode_seed = self.config.seed
         self._rng = self._make_rng("episode")
         self._generate_terrain()
         self._energy = float(min(self.config.energy_start, self.config.energy_capacity))
@@ -269,9 +269,8 @@ class GridWorld(gym.Env if gym is not None else object):  # type: ignore[misc]
 
     def step(self, action: int):
         cfg = self.config
-        if not 0 <= int(action) < cfg.n_actions:
+        if not 0 <= action < cfg.n_actions:
             raise ValueError(f"invalid action {action!r}; expected 0..{cfg.n_actions - 1}")
-        action = int(action)
 
         # Actuator noise (deterministic given episode rng + call order)
         if cfg.noise > 0 and self._rng.random() < cfg.noise:
@@ -324,7 +323,7 @@ class GridWorld(gym.Env if gym is not None else object):  # type: ignore[misc]
         if (cfg.n_resources + cfg.n_resources_b) > 0 and not cfg.resource_regen and self._resources_remaining() == 0:
             terminated = True
         truncated = self._steps >= cfg.max_steps
-        return self._observation(), float(reward), bool(terminated), bool(truncated), self._info()
+        return self._observation(), float(reward), terminated, truncated, self._info()
 
     def render(self):  # pragma: no cover - visual, exercised manually
         rows = []
@@ -483,14 +482,14 @@ class GridWorld(gym.Env if gym is not None else object):  # type: ignore[misc]
         return {
             "agent": self._agent.tolist(),
             "energy": float(self._energy),
-            "steps": int(self._steps),
-            "collected": int(self._collected),
-            "collected_a": int(self._collected_a),
-            "collected_b": int(self._collected_b),
-            "hazard_hits": int(self._hazard_hits),
+            "steps": self._steps,
+            "collected": self._collected,
+            "collected_a": self._collected_a,
+            "collected_b": self._collected_b,
+            "hazard_hits": self._hazard_hits,
             "descriptor": self._descriptor().tolist(),
             "config_hash": self.config.config_hash(),
-            "seed": int(self._episode_seed),
+            "seed": self._episode_seed,
         }
 
     # ------------------------------------------------------------------ #
@@ -503,12 +502,12 @@ class GridWorld(gym.Env if gym is not None else object):  # type: ignore[misc]
             "grid": self._grid.tolist(),
             "agent": self._agent.tolist(),
             "energy": float(self._energy),
-            "steps": int(self._steps),
-            "collected": int(self._collected),
-            "collected_a": int(self._collected_a),
-            "collected_b": int(self._collected_b),
-            "hazard_hits": int(self._hazard_hits),
-            "episode_seed": int(self._episode_seed),
+            "steps": self._steps,
+            "collected": self._collected,
+            "collected_a": self._collected_a,
+            "collected_b": self._collected_b,
+            "hazard_hits": self._hazard_hits,
+            "episode_seed": self._episode_seed,
             "rng_state": _rng_to_list(self._rng),
         }
 
