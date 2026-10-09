@@ -236,14 +236,12 @@ ERROR: epyc is not reachable over SSH.   (expected: node offline — see Blocker
   stored before this change need a re-run before their compute cost is cited.
 * **Analysis output is explicit.** `scripts/analyze.py` requires `--out`, preventing
   an analysis run from silently overwriting a prior report.
-* **Frontend dependency advisories.** The 4 Next.js runtime advisories are
-  **resolved** by the `next@16.4.0` upgrade (with ESLint 9 flat config replacing
-  the removed `next lint`). One **dev-only** vulnerability chain remains
-  unfixable without downgrading Next: `eslint-config-next` → `fast-glob` →
-  `micromatch` → `braces`; npm reports five linked records, and none are in
-  production dependencies. `npm run audit:production` now gates this property in
-  frontend CI; the residual dev-only advisory remains documented in `SECURITY.md`
-  and is not shipped in the app bundle.
+* **Frontend dependency advisories.** The Next.js runtime advisories are
+  **resolved** by the `next@16.4.0` upgrade. The former dev-only `braces` chain
+  was removed by replacing `eslint-config-next` with direct ESLint 9,
+  TypeScript, React, and React Hooks flat-config dependencies. As rechecked on
+  2026-10-09, both the full and production-only npm audits report zero
+  vulnerabilities; frontend CI gates the full audit through `npm run audit`.
 * **REINFORCE is a functional, non-confirmatory control.** The hidden-layer
   backpropagation derivative is regression-tested, and its fresh strict-cap
   40-seed promotion study (`b4c379fcddb7`) formally found it below random on
@@ -317,7 +315,6 @@ ERROR: epyc is not reachable over SSH.   (expected: node offline — see Blocker
    pure-NumPy REINFORCE configuration. If RL is strategically important,
    pre-register an algorithmic intervention (for example actor-critic), with
    fresh method and train/test seeds; do not tune the falsified configuration.
-6. Watch for an upstream fix to the dev-only `braces` advisory (Next lint plugin).
 
 ## Reproduction commands
 

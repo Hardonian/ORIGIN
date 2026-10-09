@@ -92,9 +92,9 @@ jobs:
       - name: Install deps
         working-directory: apps/lab
         run: npm ci
-      - name: Production dependency audit
+      - name: Dependency audit
         working-directory: apps/lab
-        run: npm run audit:production
+        run: npm run audit
       - name: Lint
         working-directory: apps/lab
         run: npm run lint

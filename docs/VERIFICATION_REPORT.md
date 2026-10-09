@@ -196,12 +196,10 @@ $ .venv/bin/pip-audit --progress-spinner off
 No known vulnerabilities found
 
 $ cd apps/lab && npm audit
-5 high severity vulnerabilities — all one dev-only advisory: GHSA-vfj7-8cjw-p6xm
-  (braces, via eslint-config-next -> @next/eslint-plugin-next -> fast-glob -> micromatch)
-  No Next.js runtime advisories remain after the next@16.4.0 upgrade.
-  braces@3.0.3 is the newest release and the advisory covers all versions, so it is
-  not fixable at present; npm audit fix --force only offers a DOWNGRADE. Documented
-  in SECURITY.md rather than suppressed.
+found 0 vulnerabilities
+  No Next.js runtime advisories remain after the next@16.4.0 upgrade. The former
+  dev-only `braces` chain was removed with the Next lint integration; direct
+  ESLint 9, TypeScript, React, and React Hooks rules now cover the lab lint path.
 ```
 
 `tests/test_security.py` (5 tests) asserts: no hardcoded secrets, no `pickle` and

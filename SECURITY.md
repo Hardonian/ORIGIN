@@ -36,19 +36,12 @@ the lab now runs **`next@16.4.0`**, which `npm audit` reports with no Next.js
 advisories. The upgrade also required migrating off `next lint` (removed in
 Next 16) to the **ESLint 9 flat config** in `apps/lab/eslint.config.mjs`.
 
-Remaining `npm audit` findings:
-
-| Package | Severity | Scope | Status |
-|---|---|---|---|
-| `braces` (via `eslint-config-next` → `@next/eslint-plugin-next` → `fast-glob` → `micromatch`) | high | **dev-only** (lint toolchain; never shipped in the app bundle) | **unfixable at present** — `braces@3.0.3` is the newest release and the advisory (`GHSA-vfj7-8cjw-p6xm`) covers all versions; `npm audit fix --force` only offers a *downgrade* of `eslint-config-next` |
-
-This is stated rather than suppressed. The finding is a stack-exhaustion DoS in a
-parser reached only by linting trusted first-party source, on a loopback, single-user
-tool. It is tracked in `IMPLEMENTATION_STATUS.md` and resolves when the Next lint
-plugin bumps `micromatch`/`braces`. **We do not claim the frontend dependency tree
-is advisory-free.** As checked on 2026-10-09, `npm audit --omit=dev` reports zero
-production advisories; the frontend CI job now enforces that same command through
-`npm run audit:production`.
+As checked on 2026-10-09, both `npm audit` and `npm audit --omit=dev` report
+**zero vulnerabilities**. The previous dev-only `braces` chain was removed by
+replacing `eslint-config-next` with direct ESLint 9, TypeScript, React, and
+React Hooks flat-config dependencies. Frontend CI now gates the entire tree with
+`npm run audit`; `npm run audit:production` remains available for deployment-only
+checks.
 
 Earlier PostCSS advisories were resolved with an `overrides` pin to `postcss >= 8.5.29`.
 
