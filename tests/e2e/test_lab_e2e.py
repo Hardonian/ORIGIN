@@ -177,7 +177,7 @@ def test_world_viewer_renders_grid_and_trajectory(page):
 
 
 def test_world_viewer_inspects_embodied_body_plan(page):
-    """Embodied studies expose their declared body, never a fake motion replay."""
+    """Embodied studies distinguish a recorded replay from a body-plan schematic."""
     found = _embodied_experiment_with_trial()
     if found is None:
         pytest.skip("no completed embodied experiment in the store")
@@ -186,12 +186,17 @@ def test_world_viewer_inspects_embodied_body_plan(page):
     plan = _api(f"/api/morphology?experiment={exp_id}&trial={trial['id']}")
     _goto(page, "/world")
     _select_experiment(page, exp_id)
-    body = _wait_for_text(page, "schematic, not a physics replay")
+    has_trajectory = bool(plan["has_recorded_trajectory"])
+    mode_label = "PyBullet Replay" if has_trajectory else "schematic, not a physics replay"
+    body = _wait_for_text(page, mode_label)
 
     assert "Calibration gate" in body
     assert "Latest captured evidence" in body
     assert "low longitudinal grip" in body
     assert plan["body"]["joint_axis"] in body
+    if has_trajectory:
+        assert "Physics Trajectory Replay" in body
+        assert "PyBullet Rigid-Body Replay" in body
 
 
 def test_benchmark_renders_transfer_matrix(page):
