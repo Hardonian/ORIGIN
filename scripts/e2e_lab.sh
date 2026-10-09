@@ -81,8 +81,8 @@ API_PID=$!
 wait_for "http://127.0.0.1:${API_PORT}/api/health" "API"
 
 echo "[e2e] building + starting the lab UI on ${UI_PORT}"
-(cd apps/lab && npm run build >/tmp/origin_e2e_build.log 2>&1)
-(cd apps/lab && npm run start -- -p "$UI_PORT" >/tmp/origin_e2e_ui.log 2>&1) &
+(cd apps/lab && NEXT_PUBLIC_ORIGIN_API="http://127.0.0.1:${API_PORT}" npm run build >/tmp/origin_e2e_build.log 2>&1)
+(cd apps/lab && NEXT_PUBLIC_ORIGIN_API="http://127.0.0.1:${API_PORT}" npm run start -- -p "$UI_PORT" >/tmp/origin_e2e_ui.log 2>&1) &
 UI_PID=$!
 wait_for "http://127.0.0.1:${UI_PORT}/" "UI"
 

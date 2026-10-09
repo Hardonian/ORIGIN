@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { API_BASE, apiGet, CalibrationEvidence, ExperimentSummary, Trial } from "@/lib/api";
+import { sfx } from "@/lib/sound";
 import MorphologyCanvas3D from "./MorphologyCanvas3D";
 
 interface WorldData {
@@ -51,7 +52,7 @@ const COLORS: Record<number, string> = {
   1: "#3b4657",
   2: "#3fb950",
   3: "#f85149",
-  4: "#4f9cf9",
+  4: "#00f0ff",
 };
 
 function kindFromDetail(detail: ExperimentDetail): Exclude<EnvironmentKind, null> {
@@ -75,6 +76,9 @@ export default function WorldPage() {
   const [plan, setPlan] = useState<MorphologyPlan | null>(null);
   const [evidence, setEvidence] = useState<CalibrationEvidence | null>(null);
   const [step, setStep] = useState(0);
+  const [isPlayingReplay, setIsPlayingReplay] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
+  const [loopReplay, setLoopReplay] = useState<boolean>(true);
   const [viewerTab, setViewerTab] = useState<"3d" | "2d">("3d");
   const [err, setErr] = useState<string | null>(null);
 
@@ -128,9 +132,10 @@ export default function WorldPage() {
     } else {
       apiGet<WorldData>(`/api/world?experiment=${expId}&trial=${trialId}&seed=${seed}`)
         .then((data) => {
-        if (cancelled) return;
+          if (cancelled) return;
           setWorld(data);
           setStep(0);
+          setIsPlayingReplay(false);
         })
         .catch((e) => !cancelled && setErr(String(e)));
     }
@@ -138,6 +143,29 @@ export default function WorldPage() {
       cancelled = true;
     };
   }, [envKind, expId, resolvedExpId, trialId, seed]);
+
+  // Trajectory auto-player
+  useEffect(() => {
+    if (!isPlayingReplay || !world || world.trajectory.length === 0) return;
+    const intervalMs = Math.max(50, 260 / playbackSpeed);
+    const interval = setInterval(() => {
+      setStep((cur) => {
+        if (cur >= world.trajectory.length) {
+          if (loopReplay) {
+            sfx.toggle();
+            return 0;
+          } else {
+            setIsPlayingReplay(false);
+            return cur;
+          }
+        }
+        sfx.step();
+        return cur + 1;
+      });
+    }, intervalMs);
+
+    return () => clearInterval(interval);
+  }, [isPlayingReplay, playbackSpeed, world, loopReplay]);
 
   const detailStale = resolvedExpId !== expId;
   const stale =
@@ -155,6 +183,13 @@ export default function WorldPage() {
       if (pos) replay[pos[0]][pos[1]] = 4;
     }
     return replay;
+  }, [world, step]);
+
+  const currentStepData = useMemo(() => {
+    if (!world || world.trajectory.length === 0 || step === 0) {
+      return null;
+    }
+    return world.trajectory[Math.min(step - 1, world.trajectory.length - 1)];
   }, [world, step]);
 
   const segmentPositions = useMemo(() => {
@@ -217,36 +252,225 @@ export default function WorldPage() {
 
       {!stale && grid && world && envKind === "gridworld" && (
         <div className="panel">
-          <div className="row" style={{ justifyContent: "space-between" }}>
-            <div>
-              <strong>step {step}</strong> / {world.trajectory.length} · total reward{" "}
-              {world.total_reward.toFixed(2)} · {world.terminated ? "terminated" : "ended"}
+          {/* Replay Controls & Scrubber */}
+          <div
+            className="row"
+            style={{
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: 12,
+              flexWrap: "wrap",
+              gap: 10,
+            }}
+          >
+            <div className="row" style={{ gap: 8 }}>
+              <button
+                className={isPlayingReplay ? "primary" : ""}
+                onClick={() => {
+                  sfx.toggle();
+                  setIsPlayingReplay((p) => !p);
+                }}
+                style={{ minWidth: 78 }}
+              >
+                {isPlayingReplay ? "⏸ Pause" : "▶ Replay"}
+              </button>
+              <button
+                onClick={() => {
+                  sfx.step();
+                  setStep((s) => Math.max(0, s - 1));
+                }}
+              >
+                ◀ Step
+              </button>
+              <button
+                onClick={() => {
+                  sfx.step();
+                  setStep((s) => Math.min(world.trajectory.length, s + 1));
+                }}
+              >
+                Step ▶
+              </button>
+              <button
+                onClick={() => {
+                  sfx.toggle();
+                  setStep(0);
+                }}
+                title="Reset to initial state"
+              >
+                ↺
+              </button>
             </div>
-            <div className="row">
-              <button onClick={() => setStep((s) => Math.max(0, s - 1))}>◀</button>
+
+            {/* Speed Multiplier & Loop */}
+            <div className="row" style={{ gap: 8, alignItems: "center" }}>
+              <span style={{ fontSize: 11, color: "var(--muted)" }}>Speed:</span>
+              {[0.5, 1, 2, 5].map((spd) => (
+                <button
+                  key={spd}
+                  onClick={() => {
+                    sfx.click();
+                    setPlaybackSpeed(spd);
+                  }}
+                  style={{
+                    padding: "2px 8px",
+                    fontSize: 11,
+                    background: playbackSpeed === spd ? "var(--panel2)" : "transparent",
+                    borderColor: playbackSpeed === spd ? "var(--accent)" : "var(--border)",
+                    color: playbackSpeed === spd ? "var(--accent)" : "var(--muted)",
+                  }}
+                >
+                  {spd}×
+                </button>
+              ))}
+              <label
+                style={{
+                  fontSize: 11,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                  cursor: "pointer",
+                  color: "var(--muted)",
+                  marginLeft: 6,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={loopReplay}
+                  onChange={(e) => setLoopReplay(e.target.checked)}
+                />
+                Loop
+              </label>
+            </div>
+
+            {/* Scrubber slider */}
+            <div className="row" style={{ gap: 10, alignItems: "center" }}>
               <input
                 type="range"
                 min={0}
                 max={world.trajectory.length}
                 value={step}
-                onChange={(e) => setStep(Number(e.target.value))}
+                onChange={(e) => {
+                  sfx.step();
+                  setStep(Number(e.target.value));
+                }}
+                style={{ width: 140 }}
               />
-              <button onClick={() => setStep((s) => Math.min(world.trajectory.length, s + 1))}>▶</button>
+              <span
+                style={{
+                  fontFamily: "JetBrains Mono, monospace",
+                  fontSize: 12,
+                  minWidth: 70,
+                  textAlign: "right",
+                }}
+              >
+                {step} / {world.trajectory.length}
+              </span>
             </div>
           </div>
-          <div className="grid" style={{ gridTemplateColumns: `repeat(${world.grid[0].length}, 16px)`, marginTop: 12 }}>
-            {grid.map((row, r) =>
-              row.map((cell, c) => (
-                <div key={`${r}-${c}`} className="cell" style={{ background: COLORS[cell] }} title={`${r},${c}`} />
-              ))
-            )}
+
+          {/* Telemetry HUD Cards */}
+          <div className="metric-grid" style={{ marginBottom: 14 }}>
+            <div>
+              <span>Current Step</span>
+              <strong style={{ color: "var(--accent)" }}>
+                {step} of {world.trajectory.length}
+              </strong>
+            </div>
+            <div>
+              <span>Position [R, C]</span>
+              <strong>
+                {currentStepData
+                  ? `[${currentStepData.agent[0]}, ${currentStepData.agent[1]}]`
+                  : "Origin [0, 0]"}
+              </strong>
+            </div>
+            <div>
+              <span>Energy Remaining</span>
+              <strong style={{ color: currentStepData && currentStepData.energy < 20 ? "var(--warn)" : "var(--ok)" }}>
+                {currentStepData ? `${Math.round(currentStepData.energy)}%` : "100%"}
+              </strong>
+            </div>
+            <div>
+              <span>Resources Collected</span>
+              <strong>{currentStepData ? currentStepData.collected : 0} items</strong>
+            </div>
+            <div>
+              <span>Total Reward</span>
+              <strong style={{ color: "var(--ok)" }}>
+                {world.total_reward.toFixed(2)}
+              </strong>
+            </div>
+            <div>
+              <span>Status</span>
+              <strong>
+                <span className={`badge ${world.terminated ? "done" : "running"}`}>
+                  {world.terminated ? "completed" : "active"}
+                </span>
+              </strong>
+            </div>
           </div>
-          <div className="legend">
-            <span><span className="swatch" style={{ background: COLORS[0], border: "1px solid #333" }} />empty</span>
-            <span><span className="swatch" style={{ background: COLORS[1] }} />obstacle</span>
-            <span><span className="swatch" style={{ background: COLORS[2] }} />resource</span>
-            <span><span className="swatch" style={{ background: COLORS[3] }} />hazard</span>
-            <span><span className="swatch" style={{ background: COLORS[4] }} />agent</span>
+
+          {/* Grid View */}
+          <div
+            style={{
+              padding: 16,
+              background: "#080c12",
+              border: "1px solid var(--border)",
+              borderRadius: 8,
+              display: "inline-block",
+            }}
+          >
+            <div
+              className="grid"
+              style={{
+                gridTemplateColumns: `repeat(${world.grid[0].length}, 18px)`,
+                gap: 2,
+              }}
+            >
+              {grid.map((row, r) =>
+                row.map((cell, c) => (
+                  <div
+                    key={`${r}-${c}`}
+                    className="cell"
+                    style={{
+                      width: 18,
+                      height: 18,
+                      background: COLORS[cell],
+                      borderRadius: cell === 4 ? "50%" : 2,
+                      boxShadow: cell === 4 ? "0 0 10px #00f0ff" : "none",
+                      transition: "all 0.1s ease",
+                    }}
+                    title={`Cell [${r}, ${c}] - ${cell === 4 ? "Agent" : cell === 1 ? "Obstacle" : cell === 2 ? "Resource" : cell === 3 ? "Hazard" : "Empty"}`}
+                  />
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="legend" style={{ marginTop: 12 }}>
+            <span>
+              <span className="swatch" style={{ background: COLORS[0], border: "1px solid #333" }} />
+              empty
+            </span>
+            <span>
+              <span className="swatch" style={{ background: COLORS[1] }} />
+              obstacle
+            </span>
+            <span>
+              <span className="swatch" style={{ background: COLORS[2] }} />
+              resource (+reward)
+            </span>
+            <span>
+              <span className="swatch" style={{ background: COLORS[3] }} />
+              hazard (-damage)
+            </span>
+            <span>
+              <span
+                className="swatch"
+                style={{ background: COLORS[4], borderRadius: "50%", boxShadow: "0 0 6px #00f0ff" }}
+              />
+              agent
+            </span>
           </div>
           <p className="muted" style={{ marginTop: 10 }}>
             morphology: {JSON.stringify(world.morphology)} · obs mode {String(world.config.obs_mode)}

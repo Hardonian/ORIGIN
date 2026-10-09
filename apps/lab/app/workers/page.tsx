@@ -8,6 +8,8 @@ import {
   WorkerInfo,
   WorkerReport,
 } from "@/lib/api";
+import { sfx } from "@/lib/sound";
+import { showToast } from "@/lib/toast";
 
 export default function WorkersPage() {
   const [report, setReport] = useState<WorkerReport | null>(null);
@@ -53,21 +55,34 @@ export default function WorkersPage() {
   }, [autoRefresh, refreshTrigger]);
 
   const handleRefresh = () => {
+    sfx.click();
     setRefreshTrigger((prev) => prev + 1);
+  };
+
+  const handleCopyCmd = () => {
+    const cmd = "origin-worker --config configs/pilot.json --store runs";
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(cmd);
+      sfx.blip();
+      showToast("Worker command copied to clipboard!", "success");
+    }
   };
 
   const handleReap = async () => {
     try {
+      sfx.laser();
       const res = await apiPost<{ reaped: boolean; dead_workers: string[]; recovered_trials: string[] }>(
         "/api/workers/reap",
         { stale_after: 120.0 }
       );
-      setReapMessage(
-        `Reaped ${res.dead_workers.length} dead worker(s); reclaimed ${res.recovered_trials.length} trial(s) back to queue.`
-      );
+      const msg = `Reaped ${res.dead_workers.length} dead worker(s); reclaimed ${res.recovered_trials.length} trial(s) back to queue.`;
+      setReapMessage(msg);
+      showToast(msg, "success");
       handleRefresh();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : String(err));
+      const errMsg = err instanceof Error ? err.message : String(err);
+      setError(errMsg);
+      showToast(errMsg, "error");
     }
   };
 
@@ -81,22 +96,28 @@ export default function WorkersPage() {
     (w) => w.status === "running" && w.heartbeat_age_seconds > 120
   );
 
+  const clusterHealthPercent =
+    workers.length === 0 ? 100 : Math.round((activeWorkers.length / workers.length) * 100);
+
   return (
     <div>
-      <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+      <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
         <div>
           <h1>Cluster &amp; Compute Workers</h1>
-          <p className="sub">
+          <p className="sub" style={{ margin: 0 }}>
             Real-time monitor for local and distributed worker processes. Trials are claimed
             atomically from the shared SQLite store.
           </p>
         </div>
-        <div className="row">
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+        <div className="row" style={{ gap: 8 }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer" }}>
             <input
               type="checkbox"
               checked={autoRefresh}
-              onChange={(e) => setAutoRefresh(e.target.checked)}
+              onChange={(e) => {
+                sfx.toggle();
+                setAutoRefresh(e.target.checked);
+              }}
             />
             Auto-refresh (3s)
           </label>
@@ -124,8 +145,100 @@ export default function WorkersPage() {
         </div>
       )}
 
+      {/* Cluster Radar & Health Pulse Panel */}
+      <div
+        className="panel"
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: 16,
+          background: "linear-gradient(135deg, rgba(16, 24, 38, 0.9), rgba(8, 12, 18, 0.95))",
+          borderColor: staleWorkers.length > 0 ? "rgba(245, 158, 11, 0.4)" : "rgba(0, 240, 255, 0.2)",
+          marginBottom: 16,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          {/* Animated radar disk */}
+          <div
+            style={{
+              position: "relative",
+              width: 54,
+              height: 54,
+              borderRadius: "50%",
+              background: "#0a1018",
+              border: "1px solid rgba(0, 240, 255, 0.4)",
+              boxShadow: "0 0 16px rgba(0, 240, 255, 0.2)",
+              overflow: "hidden",
+              flexShrink: 0,
+            }}
+          >
+            {/* Concentric rings */}
+            <div
+              style={{
+                position: "absolute",
+                top: 9,
+                left: 9,
+                width: 34,
+                height: 34,
+                borderRadius: "50%",
+                border: "1px dashed rgba(0, 240, 255, 0.3)",
+              }}
+            />
+            {/* Rotating radar beam */}
+            <div className="radar-sweep-beam" />
+            {/* Center blip */}
+            <div
+              style={{
+                position: "absolute",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+                width: 6,
+                height: 6,
+                borderRadius: "50%",
+                background: staleWorkers.length > 0 ? "var(--warn)" : "var(--ok)",
+                boxShadow: `0 0 6px ${staleWorkers.length > 0 ? "var(--warn)" : "var(--ok)"}`,
+              }}
+            />
+          </div>
+
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <strong style={{ fontSize: 16, letterSpacing: 0.5 }}>
+                Cluster Health: {clusterHealthPercent}%
+              </strong>
+              <span className={`badge ${staleWorkers.length > 0 ? "running" : "done"}`}>
+                {staleWorkers.length > 0 ? "Stale Workers Detected" : "100% Operational"}
+              </span>
+            </div>
+            <p className="muted" style={{ margin: "4px 0 0 0", fontSize: 12 }}>
+              {activeWorkers.length} active worker node(s) executing parallel jobs across {caps?.cpus ?? 1} CPU cores.
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={handleCopyCmd}
+          style={{
+            fontSize: 12,
+            padding: "6px 12px",
+            background: "var(--panel2)",
+            borderColor: "var(--accent)",
+            color: "var(--accent)",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+          }}
+        >
+          <span>📋 Copy CLI Worker Launch Command</span>
+        </button>
+      </div>
+
       {/* Cluster Overview Cards */}
       <div className="metric-grid" style={{ marginBottom: 16 }}>
+
         <div>
           <span>Active Workers</span>
           <strong style={{ fontSize: 20, color: "var(--ok)" }}>{activeWorkers.length}</strong>
